@@ -18,3 +18,12 @@ View your app in AI Studio: https://ai.studio/apps/1917f059-bbb1-4676-ba06-3af2e
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Classroom demo tips
+
+- Use the **Vision Model Architecture** selector to compare broad tradeoffs:
+  - **SSD MobileNet** models are a good baseline for discussing speed versus accuracy.
+  - **YOLOv8 Nano** usually finds more objects, but it is a heavier model to load.
+  - **MoveNet** and **BlazeFace** are specialized models for people and faces.
+- The **Confidence Threshold** slider controls how certain the model must be before a box is shown. Lower values show more guesses; higher values keep only stronger matches.
+- If webcam access is unavailable during a lesson, click **Use Classroom Demo** to switch to a prepared example scene that still responds to the selected model and threshold.
