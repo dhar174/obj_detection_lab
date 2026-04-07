@@ -50,7 +50,7 @@ export const DetectionInfo: React.FC<DetectionInfoProps> = ({ objects, isActive 
           {isActive ? 'Live results update below.' : 'Start the webcam to begin scanning.'}
         </p>
       </div>
-      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
         {liveSummary}
       </p>
       <ul className="space-y-2" aria-live="off">

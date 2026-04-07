@@ -68,7 +68,7 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-gray-900 text-gray-200 flex flex-col font-sans">
       <Header />
       <main className="flex-grow container mx-auto p-4 flex flex-col items-center justify-center">
-        <p id="app-status" className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        <p id="app-status" className="sr-only" aria-live="polite" aria-atomic="true">
           {statusMessage}
         </p>
         <div className="w-full max-w-4xl bg-gray-800 rounded-lg shadow-2xl overflow-hidden border border-gray-700">
