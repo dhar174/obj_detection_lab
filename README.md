@@ -19,6 +19,11 @@ View your app in AI Studio: https://ai.studio/apps/1917f059-bbb1-4676-ba06-3af2e
 3. Run the app:
    `npm run dev`
 
+## Model notes for classroom demos
+
+- **MoveNet Lightning / Thunder:** person boxes are now derived from higher-confidence keypoints with a small amount of padding, which keeps the person framing steadier when some joints are uncertain.
+- **YOLOv8 Nano:** the demo uses a slightly smaller inference size and a capped refresh rate so lower-end classroom hardware stays more responsive during live comparisons.
+- **SSD MobileNet / BlazeFace:** these remain the simplest baseline options when you want faster turnaround with fewer model-specific tradeoffs to explain.
 ## Classroom demo tips
 
 - Use the **Vision Model Architecture** selector to compare broad tradeoffs:

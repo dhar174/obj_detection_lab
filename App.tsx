@@ -6,6 +6,14 @@ import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import type { DetectedObject, ModelName } from './types';
 
+const MODEL_NOTES: Record<ModelName, string> = {
+  lite_mobilenet_v2: 'Fast default detector for general object demos on modest hardware.',
+  mobilenet_v1: 'Legacy SSD option with simpler behavior for comparison discussions.',
+  mobilenet_v2: 'Balanced SSD option when you want a little more accuracy than the lite model.',
+  blazeface: 'Specialized face detector with quick single-purpose results.',
+  movenet_lightning: 'Uses confident pose keypoints plus light padding to keep person boxes steadier while staying fast.',
+  movenet_thunder: 'More accurate MoveNet variant with the same steadier person-box logic for comparison.',
+  yolov8n: 'Runs at a slightly reduced input size and capped refresh rate to stay smoother on classroom laptops.'
 type DisplayMode = 'webcam' | 'demo';
 
 const DEMO_DETECTIONS: Record<ModelName, DetectedObject[]> = {
@@ -230,6 +238,13 @@ const App: React.FC = () => {
                 <optgroup label="Specialized">
                   <option value="blazeface">BlazeFace (Face Detection)</option>
                 </optgroup>
+              </select>
+              <p className="mt-2 text-xs text-center text-gray-400">
+                {MODEL_NOTES[modelName]}
+              </p>
+            </div>
+            
+            {error && <p className="text-red-400 mt-2 text-center" role="alert">{error}</p>}
                </select>
              </div>
              
