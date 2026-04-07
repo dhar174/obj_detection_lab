@@ -61,7 +61,7 @@ export const DetectionInfo: React.FC<DetectionInfoProps> = ({ objects, isActive 
           <li className="text-gray-500 text-center pt-8">Scanning for objects...</li>
         )}
         {objects.map((obj) => (
-          <li key={`${obj.class}-${obj.bbox.map(value => Math.round(value)).join('-')}-${obj.score.toFixed(2)}`} className="flex justify-between items-center bg-gray-700/50 p-2 rounded-md">
+          <li key={`${obj.class}-${obj.bbox.join('-')}-${obj.score}`} className="flex justify-between items-center bg-gray-700/50 p-2 rounded-md">
             <span className="capitalize font-semibold text-gray-200">{obj.class}</span>
             <span className={`font-mono text-sm ${getConfidenceColor(obj.score)}`} aria-label={`${(obj.score * 100).toFixed(1)} percent confidence`}>
               {(obj.score * 100).toFixed(1)}%

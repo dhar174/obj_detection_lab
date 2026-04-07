@@ -58,10 +58,10 @@ const App: React.FC = () => {
     }
 
     if (isWebcamActive) {
-      return `Webcam active. Live detection is running with a ${Math.round(confidenceThreshold * 100)} percent confidence threshold. Stop the webcam before changing models.`;
+      return `Webcam active. Live detection is running with a ${Math.round(confidenceThreshold * 100)}% confidence threshold. Stop the webcam before changing models.`;
     }
 
-    return `Vision model ready. Webcam is off. Current confidence threshold is ${Math.round(confidenceThreshold * 100)} percent.`;
+    return `Vision model ready. Webcam is off. Current confidence threshold is ${Math.round(confidenceThreshold * 100)}%.`;
   }, [confidenceThreshold, error, isWebcamActive, modelLoaded]);
 
   return (
@@ -121,7 +121,6 @@ const App: React.FC = () => {
                   value={confidenceThreshold}
                   onChange={handleThresholdChange}
                   aria-describedby="threshold-help app-status"
-                  aria-valuetext={`${Math.round(confidenceThreshold * 100)} percent confidence threshold`}
                   className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
                 <p id="threshold-help" className="mt-2 text-xs text-gray-400 text-center">
