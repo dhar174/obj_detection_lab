@@ -88,7 +88,7 @@ const App: React.FC = () => {
               onClick={toggleWebcam}
               disabled={!modelLoaded}
               aria-controls="webcam-panel detection-results"
-              aria-describedby="app-status webcam-toggle-help"
+              aria-describedby="webcam-toggle-help"
               className={`w-full px-8 py-4 text-xl font-bold rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-lg
                 ${!modelLoaded
                   ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
@@ -120,7 +120,7 @@ const App: React.FC = () => {
                   step="0.05"
                   value={confidenceThreshold}
                   onChange={handleThresholdChange}
-                  aria-describedby="threshold-help app-status"
+                  aria-describedby="threshold-help"
                   className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
                 <p id="threshold-help" className="mt-2 text-xs text-gray-400 text-center">
@@ -139,7 +139,7 @@ const App: React.FC = () => {
                  disabled={isWebcamActive}
                  className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5 text-center focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                  aria-label="Select vision model"
-                 aria-describedby="model-help app-status"
+                 aria-describedby="model-help"
                >
                 <optgroup label="SSD Object Detection (COCO)">
                   <option value="lite_mobilenet_v2">SSD MobileNet V2 Lite (Fast)</option>
