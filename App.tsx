@@ -6,6 +6,16 @@ import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import type { DetectedObject, ModelName } from './types';
 
+const MODEL_NOTES: Record<ModelName, string> = {
+  lite_mobilenet_v2: 'Fast default detector for general object demos on modest hardware.',
+  mobilenet_v1: 'Legacy SSD option with simpler behavior for comparison discussions.',
+  mobilenet_v2: 'Balanced SSD option when you want a little more accuracy than the lite model.',
+  blazeface: 'Specialized face detector with quick single-purpose results.',
+  movenet_lightning: 'Uses confident pose keypoints plus light padding to keep person boxes steadier while staying fast.',
+  movenet_thunder: 'More accurate MoveNet variant with the same steadier person-box logic for comparison.',
+  yolov8n: 'Runs at a slightly reduced input size and capped refresh rate to stay smoother on classroom laptops.'
+};
+
 const App: React.FC = () => {
   const [isWebcamActive, setIsWebcamActive] = useState<boolean>(false);
   const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
@@ -101,10 +111,10 @@ const App: React.FC = () => {
                />
             </div>
 
-            <div className="w-full">
-              <label htmlFor="model-select" className="block text-sm font-medium text-gray-400 mb-2 text-center">
-                Vision Model Architecture
-              </label>
+             <div className="w-full">
+               <label htmlFor="model-select" className="block text-sm font-medium text-gray-400 mb-2 text-center">
+                 Vision Model Architecture
+               </label>
               <select
                 id="model-select"
                 value={modelName}
@@ -127,12 +137,15 @@ const App: React.FC = () => {
                 </optgroup>
                 <optgroup label="Specialized">
                   <option value="blazeface">BlazeFace (Face Detection)</option>
-                </optgroup>
-              </select>
-            </div>
-            
-            {error && <p className="text-red-400 mt-2 text-center" role="alert">{error}</p>}
-          </div>
+                 </optgroup>
+               </select>
+               <p className="mt-2 text-xs text-center text-gray-400">
+                 {MODEL_NOTES[modelName]}
+               </p>
+             </div>
+             
+             {error && <p className="text-red-400 mt-2 text-center" role="alert">{error}</p>}
+           </div>
 
           <div className="w-full md:w-2/3">
              <DetectionInfo objects={detectedObjects} isActive={isWebcamActive} />

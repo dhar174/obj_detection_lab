@@ -56,6 +56,50 @@ const YOLO_LABELS = [
   'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
 ];
 
+const MOVENET_MIN_KEYPOINT_SCORE = 0.3;
+const MOVENET_BOX_PADDING = 0.12;
+const YOLO_INPUT_SIZE = 512;
+const YOLO_MAX_DETECTIONS = 20;
+const YOLO_MIN_FRAME_INTERVAL_MS = 120;
+
+const getMoveNetBoundingBox = (
+  pose: any,
+  videoWidth: number,
+  videoHeight: number,
+  confidenceThreshold: number
+): [number, number, number, number] | null => {
+  const validKeypoints = pose.keypoints.filter((keypoint: any) => (
+    Number.isFinite(keypoint.x) && Number.isFinite(keypoint.y)
+  ));
+  const confidentKeypoints = validKeypoints.filter((keypoint: any) => (
+    (keypoint.score ?? 0) >= Math.max(MOVENET_MIN_KEYPOINT_SCORE, confidenceThreshold * 0.5)
+  ));
+  const keypointsForBox = confidentKeypoints.length >= 4 ? confidentKeypoints : validKeypoints;
+
+  if (keypointsForBox.length < 2) {
+    return null;
+  }
+
+  const xs = keypointsForBox.map((keypoint: any) => keypoint.x);
+  const ys = keypointsForBox.map((keypoint: any) => keypoint.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const paddingX = Math.max((maxX - minX) * MOVENET_BOX_PADDING, 12);
+  const paddingY = Math.max((maxY - minY) * MOVENET_BOX_PADDING, 12);
+  const left = Math.max(0, minX - paddingX);
+  const top = Math.max(0, minY - paddingY);
+  const right = Math.min(videoWidth, maxX + paddingX);
+  const bottom = Math.min(videoHeight, maxY + paddingY);
+
+  if (right <= left || bottom <= top) {
+    return null;
+  }
+
+  return [left, top, right - left, bottom - top];
+};
+
 export const WebcamView: React.FC<WebcamViewProps> = ({ 
   isActive, 
   modelName, 
@@ -69,6 +113,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
   const modelRef = useRef<any>(null);
   const animationFrameId = useRef<number>();
   const streamRef = useRef<MediaStream | null>(null);
+  const lastDetectionTimeRef = useRef<number>(0);
 
   const detectFrame = useCallback(async () => {
     if (!videoRef.current || videoRef.current.readyState < 4 || !modelRef.current || !canvasRef.current) {
@@ -91,8 +136,16 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     }
     
     let predictions: DetectedObject[] = [];
+    const now = performance.now();
+
+    if (modelName === 'yolov8n' && now - lastDetectionTimeRef.current < YOLO_MIN_FRAME_INTERVAL_MS) {
+      animationFrameId.current = requestAnimationFrame(detectFrame);
+      return;
+    }
     
     try {
+        lastDetectionTimeRef.current = now;
+
         if (modelName === 'blazeface') {
             const facePredictions = await modelRef.current.estimateFaces(video, false);
             predictions = facePredictions.map((pred: any) => ({
@@ -112,22 +165,28 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
             predictions = poses
                 .filter((pose: any) => pose.score >= confidenceThreshold)
                 .map((pose: any) => {
-                    const xs = pose.keypoints.map((k: any) => k.x);
-                    const ys = pose.keypoints.map((k: any) => k.y);
-                    const minX = Math.min(...xs);
-                    const maxX = Math.max(...xs);
-                    const minY = Math.min(...ys);
-                    const maxY = Math.max(...ys);
+                    const bbox = getMoveNetBoundingBox(
+                      pose,
+                      video.videoWidth,
+                      video.videoHeight,
+                      confidenceThreshold
+                    );
+
+                    if (!bbox) {
+                      return null;
+                    }
+
                     return {
-                        bbox: [minX, minY, maxX - minX, maxY - minY],
+                        bbox,
                         class: 'person',
                         score: pose.score
                     };
-                });
+                })
+                .filter((prediction): prediction is DetectedObject => prediction !== null);
         } else if (modelName === 'yolov8n') {
             // YOLOv8 Detection Logic
             const input = tf.tidy(() => {
-                return tf.image.resizeBilinear(tf.browser.fromPixels(video), [640, 640])
+                return tf.image.resizeBilinear(tf.browser.fromPixels(video), [YOLO_INPUT_SIZE, YOLO_INPUT_SIZE])
                     .div(255.0)
                     .expandDims(0);
             });
@@ -163,14 +222,22 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
             });
 
             // NMS
-            const nms = await tf.image.nonMaxSuppressionAsync(boxes, scores, 50, 0.45, confidenceThreshold);
-            const boxesData = boxes.gather(nms, 0).dataSync();
-            const scoresData = scores.gather(nms, 0).dataSync();
-            const classesData = classes.gather(nms, 0).dataSync();
+            const nms = await tf.image.nonMaxSuppressionAsync(boxes, scores, YOLO_MAX_DETECTIONS, 0.45, confidenceThreshold);
+            const [boxesData, scoresData, classesData] = tf.tidy(() => {
+                const selectedBoxes = boxes.gather(nms, 0);
+                const selectedScores = scores.gather(nms, 0);
+                const selectedClasses = classes.gather(nms, 0);
+
+                return [
+                    Array.from(selectedBoxes.dataSync()),
+                    Array.from(selectedScores.dataSync()),
+                    Array.from(selectedClasses.dataSync()),
+                ];
+            });
             
             // Scale factors
-            const scaleX = video.videoWidth / 640;
-            const scaleY = video.videoHeight / 640;
+            const scaleX = video.videoWidth / YOLO_INPUT_SIZE;
+            const scaleY = video.videoHeight / YOLO_INPUT_SIZE;
 
             predictions = [];
             for (let i = 0; i < nms.size; i++) {
