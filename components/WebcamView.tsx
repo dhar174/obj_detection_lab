@@ -56,8 +56,12 @@ const YOLO_LABELS = [
   'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
 ];
 
+// Keep pose boxes stable by ignoring very low-confidence joints.
 const MOVENET_MIN_KEYPOINT_SCORE = 0.3;
+// Add a small margin so the box does not hug the outermost confident joints.
 const MOVENET_BOX_PADDING = 0.12;
+const MOVENET_MIN_PADDING_PX = 12;
+// Smaller YOLO input keeps the classroom demo responsive on lower-end laptops.
 const YOLO_INPUT_SIZE = 512;
 const YOLO_MAX_DETECTIONS = 20;
 const YOLO_MIN_FRAME_INTERVAL_MS = 120;
@@ -86,8 +90,8 @@ const getMoveNetBoundingBox = (
   const maxX = Math.max(...xs);
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
-  const paddingX = Math.max((maxX - minX) * MOVENET_BOX_PADDING, 12);
-  const paddingY = Math.max((maxY - minY) * MOVENET_BOX_PADDING, 12);
+  const paddingX = Math.max((maxX - minX) * MOVENET_BOX_PADDING, MOVENET_MIN_PADDING_PX);
+  const paddingY = Math.max((maxY - minY) * MOVENET_BOX_PADDING, MOVENET_MIN_PADDING_PX);
   const left = Math.max(0, minX - paddingX);
   const top = Math.max(0, minY - paddingY);
   const right = Math.min(videoWidth, maxX + paddingX);
@@ -144,8 +148,6 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     }
     
     try {
-        lastDetectionTimeRef.current = now;
-
         if (modelName === 'blazeface') {
             const facePredictions = await modelRef.current.estimateFaces(video, false);
             predictions = facePredictions.map((pred: any) => ({
@@ -223,24 +225,21 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
 
             // NMS
             const nms = await tf.image.nonMaxSuppressionAsync(boxes, scores, YOLO_MAX_DETECTIONS, 0.45, confidenceThreshold);
-            const [boxesData, scoresData, classesData] = tf.tidy(() => {
-                const selectedBoxes = boxes.gather(nms, 0);
-                const selectedScores = scores.gather(nms, 0);
-                const selectedClasses = classes.gather(nms, 0);
-
-                return [
-                    Array.from(selectedBoxes.dataSync()),
-                    Array.from(selectedScores.dataSync()),
-                    Array.from(selectedClasses.dataSync()),
-                ];
-            });
+            const selectedBoxes = boxes.gather(nms, 0);
+            const selectedScores = scores.gather(nms, 0);
+            const selectedClasses = classes.gather(nms, 0);
+            const boxesData = Array.from(selectedBoxes.dataSync());
+            const scoresData = Array.from(selectedScores.dataSync());
+            const classesData = Array.from(selectedClasses.dataSync());
+            const detectionCount = nms.size;
+            tf.dispose([selectedBoxes, selectedScores, selectedClasses, res, input, boxes, scores, classes, nms]);
             
             // Scale factors
             const scaleX = video.videoWidth / YOLO_INPUT_SIZE;
             const scaleY = video.videoHeight / YOLO_INPUT_SIZE;
 
             predictions = [];
-            for (let i = 0; i < nms.size; i++) {
+            for (let i = 0; i < detectionCount; i++) {
                 const y1 = boxesData[i * 4] * scaleY;
                 const x1 = boxesData[i * 4 + 1] * scaleX;
                 const y2 = boxesData[i * 4 + 2] * scaleY;
@@ -255,15 +254,16 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
                 });
             }
 
-            // Cleanup tensors
-            tf.dispose([res, input, boxes, scores, classes, nms]);
-
         } else {
             // COCO-SSD
             predictions = await modelRef.current.detect(video, undefined, confidenceThreshold);
         }
     } catch (e) {
         console.warn("Detection error:", e);
+    }
+
+    if (modelName === 'yolov8n') {
+      lastDetectionTimeRef.current = performance.now();
     }
     
     onDetections(predictions);

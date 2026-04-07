@@ -111,10 +111,10 @@ const App: React.FC = () => {
                />
             </div>
 
-             <div className="w-full">
-               <label htmlFor="model-select" className="block text-sm font-medium text-gray-400 mb-2 text-center">
-                 Vision Model Architecture
-               </label>
+            <div className="w-full">
+              <label htmlFor="model-select" className="block text-sm font-medium text-gray-400 mb-2 text-center">
+                Vision Model Architecture
+              </label>
               <select
                 id="model-select"
                 value={modelName}
@@ -137,15 +137,15 @@ const App: React.FC = () => {
                 </optgroup>
                 <optgroup label="Specialized">
                   <option value="blazeface">BlazeFace (Face Detection)</option>
-                 </optgroup>
-               </select>
-               <p className="mt-2 text-xs text-center text-gray-400">
-                 {MODEL_NOTES[modelName]}
-               </p>
-             </div>
-             
-             {error && <p className="text-red-400 mt-2 text-center" role="alert">{error}</p>}
-           </div>
+                </optgroup>
+              </select>
+              <p className="mt-2 text-xs text-center text-gray-400">
+                {MODEL_NOTES[modelName]}
+              </p>
+            </div>
+            
+            {error && <p className="text-red-400 mt-2 text-center" role="alert">{error}</p>}
+          </div>
 
           <div className="w-full md:w-2/3">
              <DetectionInfo objects={detectedObjects} isActive={isWebcamActive} />
