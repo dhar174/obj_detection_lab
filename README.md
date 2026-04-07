@@ -1,20 +1,35 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Classroom Object Detection Demo
 
-# Run and deploy your AI Studio app
+This repository contains a small React + TypeScript classroom demo for running browser-based object detection from a webcam feed. The app loads TensorFlow.js models in the browser and can switch between SSD MobileNet, BlazeFace, MoveNet, and a YOLOv8 Nano option.
 
-This contains everything you need to run your app locally.
+## Prerequisites
 
-View your app in AI Studio: https://ai.studio/apps/1917f059-bbb1-4676-ba06-3af2eb8292bc
+- Node.js 20+
+- A modern desktop browser with webcam support
 
-## Run Locally
-
-**Prerequisites:**  Node.js
-
+## Run locally
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```bash
+   npm install
+   ```
+2. Start the Vite development server:
+   ```bash
+   npm run dev
+   ```
+3. Open the local URL printed by Vite and allow camera access when prompted.
+
+> This app does **not** require a Gemini API key or any other server-side credentials.
+
+## Validate the app
+
+Build the production bundle to verify the app still compiles:
+
+```bash
+npm run build
+```
+
+## Classroom notes
+
+- Model downloads happen in the browser the first time a model is selected, so the initial load can take longer on slower networks.
+- Webcam access must be granted in the browser before live detection can start.
