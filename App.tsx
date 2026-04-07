@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { WebcamView } from './components/WebcamView';
 import { DetectionInfo } from './components/DetectionInfo';
 import { Header } from './components/Header';
@@ -95,7 +95,7 @@ const App: React.FC = () => {
     setDisplayMode('demo');
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (displayMode === 'webcam' && startWebcamWhenReady && modelLoaded) {
       setIsWebcamActive(true);
       setStartWebcamWhenReady(false);
