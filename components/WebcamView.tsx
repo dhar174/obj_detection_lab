@@ -67,6 +67,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modelRef = useRef<any>(null);
+  const activeModelLoadId = useRef(0);
   const animationFrameId = useRef<number>();
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -228,12 +229,15 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
   
   // Load Model
   useEffect(() => {
+    const loadId = ++activeModelLoadId.current;
+
     const loadModel = async () => {
       onModelLoad(false);
       if (modelRef.current?.dispose) {
         modelRef.current.dispose();
       }
       modelRef.current = null;
+
       try {
         let loadedModel;
         if (modelName === 'blazeface') {
@@ -254,9 +258,21 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
         } else {
           loadedModel = await cocoSsd.load({ base: modelName as 'lite_mobilenet_v2' | 'mobilenet_v1' | 'mobilenet_v2' });
         }
+
+        if (loadId !== activeModelLoadId.current) {
+          if (loadedModel?.dispose) {
+            loadedModel.dispose();
+          }
+          return;
+        }
+
         modelRef.current = loadedModel;
         onModelLoad(true);
       } catch (error: any) {
+        if (loadId !== activeModelLoadId.current) {
+          return;
+        }
+
         console.error(`Failed to load ${modelName} model`, error);
         let errorMsg = `Failed to load ${modelName} model.`;
         if (error.message && error.message.includes("fetch")) {
@@ -265,12 +281,19 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
         onError(errorMsg);
       }
     };
-    
+     
     // Ensure TF is ready before loading
     tf.ready().then(() => {
-        loadModel();
+        if (loadId === activeModelLoadId.current) {
+          loadModel();
+        }
     });
-    
+
+    return () => {
+      if (activeModelLoadId.current === loadId) {
+        activeModelLoadId.current += 1;
+      }
+    };
   }, [modelName, onModelLoad, onError]);
 
   // Effect 1: Handle Webcam Stream
