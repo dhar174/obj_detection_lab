@@ -44,6 +44,7 @@ const DEMO_DETECTIONS: Record<ModelName, DetectedObject[]> = {
 const App: React.FC = () => {
   const [displayMode, setDisplayMode] = useState<DisplayMode>('webcam');
   const [isWebcamActive, setIsWebcamActive] = useState<boolean>(false);
+  const [startWebcamWhenReady, setStartWebcamWhenReady] = useState<boolean>(false);
   const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
   const [modelLoaded, setModelLoaded] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +62,7 @@ const App: React.FC = () => {
   const handleError = useCallback((message: string) => {
     setError(message);
     setIsWebcamActive(false);
+    setStartWebcamWhenReady(false);
   }, []);
 
   const demoObjects = useMemo(
@@ -72,14 +74,33 @@ const App: React.FC = () => {
   const displayedObjects = displayMode === 'demo' ? demoObjects : detectedObjects;
   const isWebcamButtonDisabled = displayMode === 'webcam' && !modelLoaded && !isWebcamActive;
 
+  const switchToWebcamMode = useCallback(() => {
+    setError(null);
+    setDisplayMode('webcam');
+    if (modelLoaded) {
+      setStartWebcamWhenReady(false);
+      setIsWebcamActive(true);
+      return;
+    }
+
+    setIsWebcamActive(false);
+    setStartWebcamWhenReady(true);
+  }, [modelLoaded]);
+
+  React.useEffect(() => {
+    if (displayMode === 'webcam' && startWebcamWhenReady && modelLoaded) {
+      setIsWebcamActive(true);
+      setStartWebcamWhenReady(false);
+    }
+  }, [displayMode, startWebcamWhenReady, modelLoaded]);
+
   const toggleWebcam = () => {
     if (isWebcamActive) {
       setIsWebcamActive(false);
+      setStartWebcamWhenReady(false);
       setDetectedObjects([]);
     } else {
-      setError(null);
-      setDisplayMode('webcam');
-      setIsWebcamActive(true);
+      switchToWebcamMode();
     }
   };
 
@@ -87,6 +108,7 @@ const App: React.FC = () => {
     setDetectedObjects([]);
     setError(null);
     setIsWebcamActive(false);
+    setStartWebcamWhenReady(false);
     setDisplayMode((currentMode) => (currentMode === 'demo' ? 'webcam' : 'demo'));
   };
 
@@ -206,12 +228,13 @@ const App: React.FC = () => {
                <div className="w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-center" role="alert">
                  <p className="text-red-300">{error}</p>
                  <button
-                   onClick={() => {
-                     setDetectedObjects([]);
-                     setError(null);
-                     setIsWebcamActive(false);
-                     setDisplayMode('demo');
-                   }}
+                    onClick={() => {
+                      setDetectedObjects([]);
+                      setError(null);
+                      setIsWebcamActive(false);
+                      setStartWebcamWhenReady(false);
+                      setDisplayMode('demo');
+                    }}
                    className="mt-3 inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
                  >
                    Use Classroom Demo Instead

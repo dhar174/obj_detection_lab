@@ -262,6 +262,15 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
   
   // Load Model
   useEffect(() => {
+    if (mode === 'demo') {
+      onModelLoad(false);
+      if (modelRef.current?.dispose) {
+        modelRef.current.dispose();
+      }
+      modelRef.current = null;
+      return;
+    }
+
     const loadModel = async () => {
       onModelLoad(false);
       if (typeof tf === 'undefined') {
@@ -311,11 +320,16 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
       return;
     }
 
-    tf.ready().then(() => {
-      loadModel();
-    });
+    tf.ready()
+      .then(() => {
+        loadModel();
+      })
+      .catch(() => {
+        onModelLoad(false);
+        onError('Vision libraries did not finish loading. You can still use Classroom Demo for instruction.');
+      });
     
-  }, [modelName, onModelLoad, onError]);
+  }, [mode, modelName, onModelLoad, onError]);
 
   // Effect 1: Handle Webcam Stream
   useEffect(() => {
