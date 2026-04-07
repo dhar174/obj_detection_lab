@@ -228,6 +228,11 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
   
   // Load Model
   useEffect(() => {
+    if (typeof tf === 'undefined') {
+      onError('Detection libraries failed to load. Please refresh the page and check your connection.');
+      return;
+    }
+
     const loadModel = async () => {
       onModelLoad(false);
       if (modelRef.current?.dispose) {
@@ -361,7 +366,16 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
   }, [isActive, detectFrame]);
 
   return (
-    <div className="relative aspect-video bg-black rounded-lg">
+    <div
+      id="webcam-panel"
+      role="region"
+      aria-label={isActive ? 'Live webcam preview' : 'Webcam preview'}
+      aria-describedby="webcam-view-help"
+      className="relative aspect-video bg-black rounded-lg"
+    >
+      <p id="webcam-view-help" className="sr-only">
+        The webcam preview appears here. Detection results are also listed in the detected objects panel.
+      </p>
       <video
         ref={videoRef}
         playsInline
@@ -375,11 +389,11 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
         aria-hidden="true"
       />
       {!isActive && (
-         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
+         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg" role="status" aria-live="polite">
            <div className="text-center p-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
+               <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+               </svg>
               <p className="mt-4 text-xl text-gray-400">Webcam is Inactive</p>
            </div>
         </div>
