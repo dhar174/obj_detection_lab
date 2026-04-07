@@ -28,7 +28,7 @@ export const DetectionInfo: React.FC<DetectionInfoProps> = ({ objects, isActive,
           <p className="text-gray-500 text-center pt-8">
             {mode === 'demo'
               ? objects.length === 0
-                ? 'The current threshold is hiding all sample detections. Lower it to bring weaker examples back.'
+                ? 'The current threshold is hiding all sample detections. Lower it to reveal detections with lower confidence scores.'
                 : 'Sample detections update as you change the model and confidence threshold.'
               : 'Webcam is off. Start to see detections.'}
           </p>

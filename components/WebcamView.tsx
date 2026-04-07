@@ -95,7 +95,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
       ctx.fillStyle = color;
       ctx.font = '16px sans-serif';
       const textWidth = ctx.measureText(text).width;
-      const labelY = y > 25 ? y - 5 : y + height - 25; 
+      const labelY = Math.max(0, Math.min(canvas.height - 25, y > 25 ? y - 5 : y + height - 25)); 
       ctx.fillRect(x, labelY, textWidth + 10, 25);
       
       ctx.fillStyle = '#000000';

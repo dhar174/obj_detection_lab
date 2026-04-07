@@ -70,6 +70,7 @@ const App: React.FC = () => {
 
   const isShowingWebcam = displayMode === 'webcam' && isWebcamActive;
   const displayedObjects = displayMode === 'demo' ? demoObjects : detectedObjects;
+  const isWebcamButtonDisabled = displayMode === 'webcam' && !modelLoaded && !isWebcamActive;
 
   const toggleWebcam = () => {
     if (isWebcamActive) {
@@ -121,9 +122,9 @@ const App: React.FC = () => {
           <div className="w-full md:w-1/3 flex flex-col items-center justify-center gap-4">
             <button
               onClick={toggleWebcam}
-              disabled={displayMode === 'webcam' && !modelLoaded && !isWebcamActive}
+              disabled={isWebcamButtonDisabled}
               className={`w-full px-8 py-4 text-xl font-bold rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-lg
-                ${displayMode === 'webcam' && !modelLoaded && !isWebcamActive
+                ${isWebcamButtonDisabled
                   ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   : isShowingWebcam
                   ? 'bg-red-600 hover:bg-red-700 text-white'
