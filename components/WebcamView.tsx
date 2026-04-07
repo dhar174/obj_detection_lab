@@ -230,8 +230,13 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
   // Load Model
   useEffect(() => {
     const loadId = ++activeModelLoadId.current;
+    let isStale = false;
 
     const loadModel = async () => {
+      if (isStale || loadId !== activeModelLoadId.current) {
+        return;
+      }
+
       onModelLoad(false);
       if (modelRef.current?.dispose) {
         modelRef.current.dispose();
@@ -259,7 +264,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
           loadedModel = await cocoSsd.load({ base: modelName as 'lite_mobilenet_v2' | 'mobilenet_v1' | 'mobilenet_v2' });
         }
 
-        if (loadId !== activeModelLoadId.current) {
+        if (isStale || loadId !== activeModelLoadId.current) {
           if (loadedModel?.dispose) {
             loadedModel.dispose();
           }
@@ -269,7 +274,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
         modelRef.current = loadedModel;
         onModelLoad(true);
       } catch (error: any) {
-        if (loadId !== activeModelLoadId.current) {
+        if (isStale || loadId !== activeModelLoadId.current) {
           return;
         }
 
@@ -284,15 +289,11 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
      
     // Ensure TF is ready before loading
     tf.ready().then(() => {
-        if (loadId === activeModelLoadId.current) {
-          loadModel();
-        }
+        void loadModel();
     });
 
     return () => {
-      if (activeModelLoadId.current === loadId) {
-        activeModelLoadId.current += 1;
-      }
+      isStale = true;
     };
   }, [modelName, onModelLoad, onError]);
 
