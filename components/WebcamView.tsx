@@ -23,6 +23,13 @@ declare const poseDetection: {
   };
 };
 
+type RuntimeLibraries = {
+  tf?: typeof tf;
+  cocoSsd?: typeof cocoSsd;
+  blazeface?: typeof blazeface;
+  poseDetection?: typeof poseDetection;
+};
+
 interface WebcamViewProps {
   isActive: boolean;
   modelName: ModelName;
@@ -55,6 +62,137 @@ const YOLO_LABELS = [
   'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 
   'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
 ];
+
+const MODEL_LABELS: Record<ModelName, string> = {
+  lite_mobilenet_v2: 'SSD MobileNet V2 Lite',
+  mobilenet_v1: 'SSD MobileNet V1',
+  mobilenet_v2: 'SSD MobileNet V2',
+  blazeface: 'BlazeFace',
+  movenet_lightning: 'MoveNet Lightning',
+  movenet_thunder: 'MoveNet Thunder',
+  yolov8n: 'YOLOv8 Nano',
+};
+
+const YOLO_URL = 'https://cdn.jsdelivr.net/gh/hugozanini/yolov8-tfjs-runtime@main/yolov8n_web_model/model.json';
+
+const getRuntimeLibraries = (): RuntimeLibraries => {
+  const runtime = globalThis as typeof globalThis & RuntimeLibraries;
+  return {
+    tf: runtime.tf,
+    cocoSsd: runtime.cocoSsd,
+    blazeface: runtime.blazeface,
+    poseDetection: runtime.poseDetection,
+  };
+};
+
+const getMissingModelRuntimeMessage = (modelName: ModelName, libraries: RuntimeLibraries): string | null => {
+  const modelLabel = MODEL_LABELS[modelName];
+
+  if (!libraries.tf) {
+    return `AI libraries did not finish loading. Refresh the page and make sure your network or content blocker allows TensorFlow.js files.`;
+  }
+
+  if (modelName === 'blazeface' && !libraries.blazeface) {
+    return `${modelLabel} was blocked before it could load. Refresh the page and allow jsDelivr requests in any content blocker or school filter.`;
+  }
+
+  if ((modelName === 'movenet_lightning' || modelName === 'movenet_thunder') && !libraries.poseDetection) {
+    return `${modelLabel} was blocked before it could load. Refresh the page and allow jsDelivr requests in any content blocker or school filter.`;
+  }
+
+  if (modelName !== 'blazeface' && modelName !== 'movenet_lightning' && modelName !== 'movenet_thunder' && modelName !== 'yolov8n' && !libraries.cocoSsd) {
+    return `${modelLabel} was blocked before it could load. Refresh the page and allow jsDelivr requests in any content blocker or school filter.`;
+  }
+
+  return null;
+};
+
+const getModelLoadErrorMessage = (modelName: ModelName, error: unknown, libraries: RuntimeLibraries): string => {
+  const modelLabel = MODEL_LABELS[modelName];
+  const missingRuntimeMessage = getMissingModelRuntimeMessage(modelName, libraries);
+
+  if (missingRuntimeMessage) {
+    return missingRuntimeMessage;
+  }
+
+  const errorMessage = error instanceof Error ? error.message.toLowerCase() : '';
+
+  if (!navigator.onLine) {
+    return `${modelLabel} could not load because this device appears to be offline. Reconnect to the internet and try again.`;
+  }
+
+  if (
+    errorMessage.includes('failed to fetch') ||
+    errorMessage.includes('fetch') ||
+    errorMessage.includes('networkerror') ||
+    errorMessage.includes('load failed') ||
+    errorMessage.includes('net::err')
+  ) {
+    return `${modelLabel} could not be downloaded. Check the internet connection and allow model downloads from jsDelivr before trying again.`;
+  }
+
+  if (
+    errorMessage.includes('404') ||
+    errorMessage.includes('not found') ||
+    errorMessage.includes('model.json')
+  ) {
+    return `${modelLabel} files were not available from the model host. Refresh the page or switch to another model while the network issue is resolved.`;
+  }
+
+  if (
+    errorMessage.includes('webgl') ||
+    errorMessage.includes('wasm') ||
+    errorMessage.includes('backend') ||
+    errorMessage.includes('browser')
+  ) {
+    return `${modelLabel} could not start in this browser. Try the latest Chrome, Edge, or Safari and reload the page.`;
+  }
+
+  return `${modelLabel} could not finish loading. Refresh the page first, then switch to another model if the problem continues.`;
+};
+
+const getWebcamSetupErrorMessage = (error?: unknown): string => {
+  const secureContextRequired = !window.isSecureContext
+    && window.location.hostname !== 'localhost'
+    && window.location.hostname !== '127.0.0.1';
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return secureContextRequired
+      ? 'Webcam access requires HTTPS or localhost in this browser. Open the app from a secure address and try again.'
+      : 'This browser does not support webcam access. Use a current version of Chrome, Edge, or Safari.';
+  }
+
+  if (error instanceof DOMException) {
+    switch (error.name) {
+      case 'NotAllowedError':
+      case 'PermissionDeniedError':
+        return secureContextRequired
+          ? 'Webcam access is blocked because this page is not running over HTTPS. Open the app from localhost or HTTPS, then try again.'
+          : 'Webcam access was denied. Allow camera access from the browser address bar, then start the webcam again.';
+      case 'NotFoundError':
+      case 'DevicesNotFoundError':
+        return 'No webcam was found. Connect a camera or move to a device with a built-in webcam, then try again.';
+      case 'NotReadableError':
+      case 'TrackStartError':
+        return 'The webcam is busy or unavailable. Close Zoom, Meet, Teams, or other camera apps, then try again.';
+      case 'OverconstrainedError':
+      case 'ConstraintNotSatisfiedError':
+        return 'The requested camera settings are not supported on this device. Reload the page and try the default camera again.';
+      case 'AbortError':
+        return 'Webcam startup was interrupted. Try starting it again, or reconnect the camera if it was unplugged.';
+      case 'SecurityError':
+        return 'The browser blocked webcam access for this page. Check site permissions or privacy extensions, then reload.';
+      case 'TypeError':
+        return secureContextRequired
+          ? 'Webcam access requires HTTPS or localhost in this browser. Open the app from a secure address and try again.'
+          : 'This browser could not start the webcam with the requested settings. Refresh the page or try a different browser.';
+      default:
+        break;
+    }
+  }
+
+  return 'Could not access the webcam. Make sure the camera is connected, not already in use, and allowed in browser settings.';
+};
 
 export const WebcamView: React.FC<WebcamViewProps> = ({ 
   isActive, 
@@ -125,9 +263,13 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
                     };
                 });
         } else if (modelName === 'yolov8n') {
+            const { tf: runtimeTf } = getRuntimeLibraries();
+            if (!runtimeTf) {
+                throw new Error('TensorFlow runtime is unavailable.');
+            }
             // YOLOv8 Detection Logic
-            const input = tf.tidy(() => {
-                return tf.image.resizeBilinear(tf.browser.fromPixels(video), [640, 640])
+            const input = runtimeTf.tidy(() => {
+                return runtimeTf.image.resizeBilinear(runtimeTf.browser.fromPixels(video), [640, 640])
                     .div(255.0)
                     .expandDims(0);
             });
@@ -135,7 +277,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
             // Execute model: Output shape [1, 84, 8400]
             const res = await modelRef.current.execute(input);
             
-            const [boxes, scores, classes] = tf.tidy(() => {
+            const [boxes, scores, classes] = runtimeTf.tidy(() => {
                 const output = res.squeeze(0); // [84, 8400]
                 const trans = output.transpose([1, 0]); // [8400, 84]
                 
@@ -157,13 +299,13 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
                 const y2 = yc.add(h.div(2));
                 const x2 = xc.add(w.div(2));
                 
-                const boxesNMS = tf.concat([y1, x1, y2, x2], 1);
+                const boxesNMS = runtimeTf.concat([y1, x1, y2, x2], 1);
                 
                 return [boxesNMS, maxScores, maxClasses];
             });
 
             // NMS
-            const nms = await tf.image.nonMaxSuppressionAsync(boxes, scores, 50, 0.45, confidenceThreshold);
+            const nms = await runtimeTf.image.nonMaxSuppressionAsync(boxes, scores, 50, 0.45, confidenceThreshold);
             const boxesData = boxes.gather(nms, 0).dataSync();
             const scoresData = scores.gather(nms, 0).dataSync();
             const classesData = classes.gather(nms, 0).dataSync();
@@ -189,7 +331,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
             }
 
             // Cleanup tensors
-            tf.dispose([res, input, boxes, scores, classes, nms]);
+            runtimeTf.dispose([res, input, boxes, scores, classes, nms]);
 
         } else {
             // COCO-SSD
@@ -228,49 +370,62 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
   
   // Load Model
   useEffect(() => {
+    let isCancelled = false;
+
     const loadModel = async () => {
       onModelLoad(false);
       if (modelRef.current?.dispose) {
         modelRef.current.dispose();
       }
       modelRef.current = null;
+
+      const libraries = getRuntimeLibraries();
+      const missingRuntimeMessage = getMissingModelRuntimeMessage(modelName, libraries);
+      if (missingRuntimeMessage) {
+        if (!isCancelled) {
+          onError(missingRuntimeMessage);
+        }
+        return;
+      }
+
       try {
+        await libraries.tf!.ready();
+
         let loadedModel;
         if (modelName === 'blazeface') {
-          loadedModel = await blazeface.load();
+          loadedModel = await libraries.blazeface!.load();
         } else if (modelName === 'movenet_lightning') {
-           loadedModel = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
-               modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
-           });
-        } else if (modelName === 'movenet_thunder') {
-            loadedModel = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
-                modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER
+           loadedModel = await libraries.poseDetection!.createDetector(libraries.poseDetection!.SupportedModels.MoveNet, {
+               modelType: libraries.poseDetection!.movenet.modelType.SINGLEPOSE_LIGHTNING
             });
+        } else if (modelName === 'movenet_thunder') {
+            loadedModel = await libraries.poseDetection!.createDetector(libraries.poseDetection!.SupportedModels.MoveNet, {
+                modelType: libraries.poseDetection!.movenet.modelType.SINGLEPOSE_THUNDER
+             });
         } else if (modelName === 'yolov8n') {
-            // Load YOLOv8n from a reliable jsDelivr CDN source
-            // This points to Hugo Zanini's implementation which is known to work with tfjs-graph-model
-            const YOLO_URL = 'https://cdn.jsdelivr.net/gh/hugozanini/yolov8-tfjs-runtime@main/yolov8n_web_model/model.json';
-            loadedModel = await tf.loadGraphModel(YOLO_URL);
+            loadedModel = await libraries.tf!.loadGraphModel(YOLO_URL);
         } else {
-          loadedModel = await cocoSsd.load({ base: modelName as 'lite_mobilenet_v2' | 'mobilenet_v1' | 'mobilenet_v2' });
+          loadedModel = await libraries.cocoSsd!.load({ base: modelName as 'lite_mobilenet_v2' | 'mobilenet_v1' | 'mobilenet_v2' });
+        }
+        if (isCancelled) {
+          loadedModel?.dispose?.();
+          return;
         }
         modelRef.current = loadedModel;
         onModelLoad(true);
-      } catch (error: any) {
+      } catch (error) {
         console.error(`Failed to load ${modelName} model`, error);
-        let errorMsg = `Failed to load ${modelName} model.`;
-        if (error.message && error.message.includes("fetch")) {
-            errorMsg += " Network error. Please check your connection or try disabling AdBlock.";
+        if (!isCancelled) {
+          onError(getModelLoadErrorMessage(modelName, error, libraries));
         }
-        onError(errorMsg);
       }
     };
-    
-    // Ensure TF is ready before loading
-    tf.ready().then(() => {
-        loadModel();
-    });
-    
+
+    void loadModel();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [modelName, onModelLoad, onError]);
 
   // Effect 1: Handle Webcam Stream
@@ -278,43 +433,43 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     let isMounted = true;
 
     const enableStream = async () => {
-      try {
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user' },
-          });
-          
-          if (!isMounted) {
-            stream.getTracks().forEach(track => track.stop());
-            return;
-          }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        onError(getWebcamSetupErrorMessage());
+        return;
+      }
 
-          streamRef.current = stream;
-          
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.onloadedmetadata = async () => {
-                if (!isMounted || !videoRef.current) return;
-                try {
-                    await videoRef.current.play();
-                } catch (e: any) {
-                    if (e.name !== 'AbortError' && e.name !== 'NotAllowedError') {
-                         console.error("Error playing video:", e);
-                    }
-                }
-            };
-          }
-        } else {
-          throw new Error("Your browser does not support webcam access.");
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+        });
+        
+        if (!isMounted) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
         }
-      } catch (err: any) {
+
+        streamRef.current = stream;
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = async () => {
+              if (!isMounted || !videoRef.current) return;
+              try {
+                  await videoRef.current.play();
+              } catch (e: any) {
+                  if (e.name !== 'AbortError' && e.name !== 'NotAllowedError') {
+                       console.error("Error playing video:", e);
+                  }
+                  if (isMounted && e instanceof DOMException && e.name === 'NotAllowedError') {
+                    onError(getWebcamSetupErrorMessage(e));
+                  }
+              }
+          };
+        }
+      } catch (err) {
         if (!isMounted) return;
         console.error("Error accessing webcam:", err);
-        let message = "Could not access webcam. Please ensure it is not in use by another application.";
-        if (err instanceof DOMException && err.name === 'NotAllowedError') {
-          message = "Webcam access denied. Please grant permission in your browser settings.";
-        }
-        onError(message);
+        onError(getWebcamSetupErrorMessage(err));
       }
     };
 

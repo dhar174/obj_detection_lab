@@ -131,7 +131,15 @@ const App: React.FC = () => {
               </select>
             </div>
             
-            {error && <p className="text-red-400 mt-2 text-center" role="alert">{error}</p>}
+            {error && (
+              <div
+                className="w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-left text-sm text-red-100"
+                role="alert"
+              >
+                <p className="font-semibold text-red-300">Action needed</p>
+                <p className="mt-1 whitespace-pre-line">{error}</p>
+              </div>
+            )}
           </div>
 
           <div className="w-full md:w-2/3">
