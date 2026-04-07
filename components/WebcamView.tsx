@@ -274,7 +274,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     const loadModel = async () => {
       onModelLoad(false);
       if (typeof tf === 'undefined') {
-        onError('Vision libraries did not load. You can still use Classroom Demo for instruction.');
+        onError('Vision libraries did not load. You can still use Classroom Demo mode for instruction.');
         return;
       }
       if (modelRef.current?.dispose) {
@@ -316,7 +316,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     // Ensure TF is ready before loading
     if (typeof tf === 'undefined') {
       onModelLoad(false);
-      onError('Vision libraries did not load. You can still use Classroom Demo for instruction.');
+      onError('Vision libraries did not load. You can still use Classroom Demo mode for instruction.');
       return;
     }
 
@@ -326,7 +326,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
       })
       .catch(() => {
         onModelLoad(false);
-        onError('Vision libraries did not finish loading. You can still use Classroom Demo for instruction.');
+        onError('Vision libraries did not finish loading. You can still use Classroom Demo mode for instruction.');
       });
     
   }, [mode, modelName, onModelLoad, onError]);

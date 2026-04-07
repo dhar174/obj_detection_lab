@@ -87,6 +87,14 @@ const App: React.FC = () => {
     setStartWebcamWhenReady(true);
   }, [modelLoaded]);
 
+  const switchToDemoMode = useCallback(() => {
+    setDetectedObjects([]);
+    setError(null);
+    setIsWebcamActive(false);
+    setStartWebcamWhenReady(false);
+    setDisplayMode('demo');
+  }, []);
+
   React.useEffect(() => {
     if (displayMode === 'webcam' && startWebcamWhenReady && modelLoaded) {
       setIsWebcamActive(true);
@@ -105,11 +113,12 @@ const App: React.FC = () => {
   };
 
   const toggleDemoMode = () => {
-    setDetectedObjects([]);
-    setError(null);
-    setIsWebcamActive(false);
-    setStartWebcamWhenReady(false);
-    setDisplayMode((currentMode) => (currentMode === 'demo' ? 'webcam' : 'demo'));
+    if (displayMode === 'demo') {
+      setDisplayMode('webcam');
+      return;
+    }
+
+    switchToDemoMode();
   };
 
   const handleModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -228,17 +237,11 @@ const App: React.FC = () => {
                <div className="w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-center" role="alert">
                  <p className="text-red-300">{error}</p>
                  <button
-                    onClick={() => {
-                      setDetectedObjects([]);
-                      setError(null);
-                      setIsWebcamActive(false);
-                      setStartWebcamWhenReady(false);
-                      setDisplayMode('demo');
-                    }}
-                   className="mt-3 inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                 >
-                   Use Classroom Demo Instead
-                 </button>
+                    onClick={switchToDemoMode}
+                    className="mt-3 inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                  >
+                    Use Classroom Demo Instead
+                  </button>
                </div>
              )}
           </div>
