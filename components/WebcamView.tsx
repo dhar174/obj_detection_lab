@@ -75,7 +75,7 @@ const MODEL_LABELS: Record<ModelName, string> = {
 
 const YOLO_URL = 'https://cdn.jsdelivr.net/gh/hugozanini/yolov8-tfjs-runtime@main/yolov8n_web_model/model.json';
 
-const getRuntimeLibraries = (): RuntimeLibraries => {
+const getRuntimeLibraryReferences = (): RuntimeLibraries => {
   const runtime = globalThis as typeof globalThis & RuntimeLibraries;
   return {
     tf: runtime.tf,
@@ -84,6 +84,12 @@ const getRuntimeLibraries = (): RuntimeLibraries => {
     poseDetection: runtime.poseDetection,
   };
 };
+
+const requiresCocoSsd = (modelName: ModelName): boolean => (
+  modelName === 'lite_mobilenet_v2'
+  || modelName === 'mobilenet_v1'
+  || modelName === 'mobilenet_v2'
+);
 
 const getMissingModelRuntimeMessage = (modelName: ModelName, libraries: RuntimeLibraries): string | null => {
   const modelLabel = MODEL_LABELS[modelName];
@@ -100,7 +106,7 @@ const getMissingModelRuntimeMessage = (modelName: ModelName, libraries: RuntimeL
     return `${modelLabel} was blocked before it could load. Refresh the page and allow jsDelivr requests in any content blocker or school filter.`;
   }
 
-  if (modelName !== 'blazeface' && modelName !== 'movenet_lightning' && modelName !== 'movenet_thunder' && modelName !== 'yolov8n' && !libraries.cocoSsd) {
+  if (requiresCocoSsd(modelName) && !libraries.cocoSsd) {
     return `${modelLabel} was blocked before it could load. Refresh the page and allow jsDelivr requests in any content blocker or school filter.`;
   }
 
@@ -152,12 +158,12 @@ const getModelLoadErrorMessage = (modelName: ModelName, error: unknown, librarie
 };
 
 const getWebcamSetupErrorMessage = (error?: unknown): string => {
-  const secureContextRequired = !window.isSecureContext
+  const isInsecureNonLocalContext = !window.isSecureContext
     && window.location.hostname !== 'localhost'
     && window.location.hostname !== '127.0.0.1';
 
   if (!navigator.mediaDevices?.getUserMedia) {
-    return secureContextRequired
+    return isInsecureNonLocalContext
       ? 'Webcam access requires HTTPS or localhost in this browser. Open the app from a secure address and try again.'
       : 'This browser does not support webcam access. Use a current version of Chrome, Edge, or Safari.';
   }
@@ -166,7 +172,7 @@ const getWebcamSetupErrorMessage = (error?: unknown): string => {
     switch (error.name) {
       case 'NotAllowedError':
       case 'PermissionDeniedError':
-        return secureContextRequired
+        return isInsecureNonLocalContext
           ? 'Webcam access is blocked because this page is not running over HTTPS. Open the app from localhost or HTTPS, then try again.'
           : 'Webcam access was denied. Allow camera access from the browser address bar, then start the webcam again.';
       case 'NotFoundError':
@@ -183,7 +189,7 @@ const getWebcamSetupErrorMessage = (error?: unknown): string => {
       case 'SecurityError':
         return 'The browser blocked webcam access for this page. Check site permissions or privacy extensions, then reload.';
       case 'TypeError':
-        return secureContextRequired
+        return isInsecureNonLocalContext
           ? 'Webcam access requires HTTPS or localhost in this browser. Open the app from a secure address and try again.'
           : 'This browser could not start the webcam with the requested settings. Refresh the page or try a different browser.';
       default:
@@ -263,7 +269,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
                     };
                 });
         } else if (modelName === 'yolov8n') {
-            const { tf: runtimeTf } = getRuntimeLibraries();
+            const { tf: runtimeTf } = getRuntimeLibraryReferences();
             if (!runtimeTf) {
                 throw new Error('TensorFlow runtime is unavailable.');
             }
@@ -379,7 +385,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
       }
       modelRef.current = null;
 
-      const libraries = getRuntimeLibraries();
+      const libraries = getRuntimeLibraryReferences();
       const missingRuntimeMessage = getMissingModelRuntimeMessage(modelName, libraries);
       if (missingRuntimeMessage) {
         if (!isCancelled) {
