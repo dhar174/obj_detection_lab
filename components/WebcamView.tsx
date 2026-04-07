@@ -73,8 +73,6 @@ const MODEL_LABELS: Record<ModelName, string> = {
   yolov8n: 'YOLOv8 Nano',
 };
 
-const YOLO_URL = 'https://cdn.jsdelivr.net/gh/hugozanini/yolov8-tfjs-runtime@main/yolov8n_web_model/model.json';
-
 const getRuntimeLibraryReferences = (): RuntimeLibraries => {
   const runtime = globalThis as typeof globalThis & RuntimeLibraries;
   return {
@@ -395,23 +393,41 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
       }
 
       try {
-        await libraries.tf!.ready();
+        const runtimeTf = libraries.tf;
+        if (!runtimeTf) {
+          return;
+        }
+
+        await runtimeTf.ready();
 
         let loadedModel;
         if (modelName === 'blazeface') {
-          loadedModel = await libraries.blazeface!.load();
+          if (!libraries.blazeface) {
+            return;
+          }
+          loadedModel = await libraries.blazeface.load();
         } else if (modelName === 'movenet_lightning') {
-           loadedModel = await libraries.poseDetection!.createDetector(libraries.poseDetection!.SupportedModels.MoveNet, {
-               modelType: libraries.poseDetection!.movenet.modelType.SINGLEPOSE_LIGHTNING
-            });
-        } else if (modelName === 'movenet_thunder') {
-            loadedModel = await libraries.poseDetection!.createDetector(libraries.poseDetection!.SupportedModels.MoveNet, {
-                modelType: libraries.poseDetection!.movenet.modelType.SINGLEPOSE_THUNDER
+           if (!libraries.poseDetection) {
+             return;
+           }
+           loadedModel = await libraries.poseDetection.createDetector(libraries.poseDetection.SupportedModels.MoveNet, {
+               modelType: libraries.poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
              });
+        } else if (modelName === 'movenet_thunder') {
+            if (!libraries.poseDetection) {
+              return;
+            }
+            loadedModel = await libraries.poseDetection.createDetector(libraries.poseDetection.SupportedModels.MoveNet, {
+                modelType: libraries.poseDetection.movenet.modelType.SINGLEPOSE_THUNDER
+              });
         } else if (modelName === 'yolov8n') {
-            loadedModel = await libraries.tf!.loadGraphModel(YOLO_URL);
+            const yoloModelUrl = 'https://cdn.jsdelivr.net/gh/hugozanini/yolov8-tfjs-runtime@main/yolov8n_web_model/model.json';
+            loadedModel = await runtimeTf.loadGraphModel(yoloModelUrl);
         } else {
-          loadedModel = await libraries.cocoSsd!.load({ base: modelName as 'lite_mobilenet_v2' | 'mobilenet_v1' | 'mobilenet_v2' });
+          if (!libraries.cocoSsd) {
+            return;
+          }
+          loadedModel = await libraries.cocoSsd.load({ base: modelName as 'lite_mobilenet_v2' | 'mobilenet_v1' | 'mobilenet_v2' });
         }
         if (isCancelled) {
           loadedModel?.dispose?.();
@@ -462,12 +478,13 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
               if (!isMounted || !videoRef.current) return;
               try {
                   await videoRef.current.play();
-              } catch (e: any) {
-                  if (e.name !== 'AbortError' && e.name !== 'NotAllowedError') {
-                       console.error("Error playing video:", e);
+              } catch (error) {
+                  const errorName = error instanceof DOMException ? error.name : undefined;
+                  if (errorName !== 'AbortError' && errorName !== 'NotAllowedError') {
+                       console.error("Error playing video:", error);
                   }
-                  if (isMounted && e instanceof DOMException && e.name === 'NotAllowedError') {
-                    onError(getWebcamSetupErrorMessage(e));
+                  if (isMounted && error instanceof DOMException && error.name === 'NotAllowedError') {
+                    onError(getWebcamSetupErrorMessage(error));
                   }
               }
           };
