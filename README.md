@@ -10,11 +10,22 @@ View your app in AI Studio: https://ai.studio/apps/1917f059-bbb1-4676-ba06-3af2e
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+**Prerequisites:** Node.js 20+
 
 
 1. Install dependencies:
-   `npm install`
+   `npm ci`
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Validate changes
+
+Run the same build verification locally that GitHub Actions uses:
+
+1. Install dependencies from the committed lockfile:
+   `npm ci`
+2. Verify the app still builds:
+   `npm run validate`
+
+The repository includes a `Validate` workflow that runs `npm ci` and `npm run validate` on every push and pull request.
