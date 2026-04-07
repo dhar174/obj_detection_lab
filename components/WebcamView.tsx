@@ -264,6 +264,10 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
   useEffect(() => {
     const loadModel = async () => {
       onModelLoad(false);
+      if (typeof tf === 'undefined') {
+        onError('Vision libraries did not load. You can still use Classroom Demo for instruction.');
+        return;
+      }
       if (modelRef.current?.dispose) {
         modelRef.current.dispose();
       }
@@ -301,8 +305,14 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     };
     
     // Ensure TF is ready before loading
+    if (typeof tf === 'undefined') {
+      onModelLoad(false);
+      onError('Vision libraries did not load. You can still use Classroom Demo for instruction.');
+      return;
+    }
+
     tf.ready().then(() => {
-        loadModel();
+      loadModel();
     });
     
   }, [modelName, onModelLoad, onError]);
