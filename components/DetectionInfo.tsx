@@ -33,7 +33,7 @@ export const DetectionInfo: React.FC<DetectionInfoProps> = ({ objects, isActive 
       .map(([objectClass, count]) => `${count} ${objectClass}${count === 1 ? '' : 's'}`)
       .join(', ');
 
-    return `Detected ${objects.length} object${objects.length === 1 ? '' : 's'}: ${objectSummary}.`;
+    return `Detected ${objectSummary}.`;
   }, [isActive, objects]);
 
   return (
@@ -50,7 +50,7 @@ export const DetectionInfo: React.FC<DetectionInfoProps> = ({ objects, isActive 
           {isActive ? 'Live results update below.' : 'Start the webcam to begin scanning.'}
         </p>
       </div>
-      <p className="sr-only" aria-live="polite" aria-atomic="true">
+      <p className="sr-only" role="status">
         {liveSummary}
       </p>
       <ul className="space-y-2" aria-live="off">
@@ -60,8 +60,8 @@ export const DetectionInfo: React.FC<DetectionInfoProps> = ({ objects, isActive 
         {isActive && objects.length === 0 && (
           <li className="text-gray-500 text-center pt-8">Scanning for objects...</li>
         )}
-        {objects.map((obj, index) => (
-          <li key={`${obj.class}-${index}`} className="flex justify-between items-center bg-gray-700/50 p-2 rounded-md">
+        {objects.map((obj) => (
+          <li key={`${obj.class}-${obj.bbox.map(value => Math.round(value)).join('-')}-${obj.score.toFixed(2)}`} className="flex justify-between items-center bg-gray-700/50 p-2 rounded-md">
             <span className="capitalize font-semibold text-gray-200">{obj.class}</span>
             <span className={`font-mono text-sm ${getConfidenceColor(obj.score)}`} aria-label={`${(obj.score * 100).toFixed(1)} percent confidence`}>
               {(obj.score * 100).toFixed(1)}%
