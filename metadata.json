@@ -1,0 +1,7 @@
+{
+  "name": "Webcam Object Detection Demo",
+  "description": "A web-based application demonstrating real-time object detection and tracking using a webcam. This serves as a visual counterpart to concepts often taught with Python, using TensorFlow.js and a pre-trained COCO-SSD model to identify and track objects directly in the browser.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
