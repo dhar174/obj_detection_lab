@@ -1,27 +1,10 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
+import * as blazeface from '@tensorflow-models/blazeface';
+import * as cocoSsd from '@tensorflow-models/coco-ssd';
+import * as poseDetection from '@tensorflow-models/pose-detection';
+import * as tf from '@tensorflow/tfjs';
 import type { DetectedObject, ModelName } from '../types';
-
-// Declare global variables from script tags
-declare const tf: any;
-declare const cocoSsd: {
-  load: (config?: { base: 'lite_mobilenet_v2' | 'mobilenet_v1' | 'mobilenet_v2' }) => Promise<any>;
-};
-declare const blazeface: {
-  load: () => Promise<any>;
-};
-declare const poseDetection: {
-  createDetector: (model: any, config: any) => Promise<any>;
-  SupportedModels: {
-    MoveNet: any;
-  };
-  movenet: {
-    modelType: {
-      SINGLEPOSE_LIGHTNING: any;
-      SINGLEPOSE_THUNDER: any;
-    };
-  };
-};
 
 interface WebcamViewProps {
   isActive: boolean;
@@ -55,6 +38,9 @@ const YOLO_LABELS = [
   'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 
   'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
 ];
+
+const YOLO_MODEL_URL =
+  'https://raw.githubusercontent.com/Hyuto/yolov8-tfjs/b6a8bc691c0c1897802373d7da65dc889af1f451/public/yolov8n_web_model/model.json';
 
 export const WebcamView: React.FC<WebcamViewProps> = ({ 
   isActive, 
@@ -240,17 +226,16 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
           loadedModel = await blazeface.load();
         } else if (modelName === 'movenet_lightning') {
            loadedModel = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
-               modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
-           });
-        } else if (modelName === 'movenet_thunder') {
-            loadedModel = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
-                modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER
+               runtime: 'tfjs',
+                modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
             });
+        } else if (modelName === 'movenet_thunder') {
+             loadedModel = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
+                 runtime: 'tfjs',
+                 modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER
+             });
         } else if (modelName === 'yolov8n') {
-            // Load YOLOv8n from a reliable jsDelivr CDN source
-            // This points to Hugo Zanini's implementation which is known to work with tfjs-graph-model
-            const YOLO_URL = 'https://cdn.jsdelivr.net/gh/hugozanini/yolov8-tfjs-runtime@main/yolov8n_web_model/model.json';
-            loadedModel = await tf.loadGraphModel(YOLO_URL);
+            loadedModel = await tf.loadGraphModel(YOLO_MODEL_URL);
         } else {
           loadedModel = await cocoSsd.load({ base: modelName as 'lite_mobilenet_v2' | 'mobilenet_v1' | 'mobilenet_v2' });
         }
