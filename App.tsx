@@ -1,13 +1,59 @@
-
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { WebcamView } from './components/WebcamView';
 import { DetectionInfo } from './components/DetectionInfo';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import type { DetectedObject, ModelName } from './types';
 
+const MODEL_NOTES: Record<ModelName, string> = {
+  lite_mobilenet_v2: 'Fast default detector for general object demos on modest hardware.',
+  mobilenet_v1: 'Legacy SSD option with simpler behavior for comparison discussions.',
+  mobilenet_v2: 'Balanced SSD option when you want a little more accuracy than the lite model.',
+  blazeface: 'Specialized face detector with quick single-purpose results.',
+  movenet_lightning: 'Uses confident pose keypoints plus light padding to keep person boxes steadier while staying fast.',
+  movenet_thunder: 'More accurate MoveNet variant with the same steadier person-box logic for comparison.',
+  yolov8n: 'Runs at a slightly reduced input size and capped refresh rate to stay smoother on classroom laptops.'
+};
+
+type DisplayMode = 'webcam' | 'demo';
+
+const DEMO_DETECTIONS: Record<ModelName, DetectedObject[]> = {
+  lite_mobilenet_v2: [
+    { class: 'person', score: 0.87, bbox: [180, 120, 280, 510] },
+    { class: 'laptop', score: 0.71, bbox: [700, 390, 220, 140] },
+    { class: 'cell phone', score: 0.56, bbox: [470, 305, 70, 120] },
+  ],
+  mobilenet_v1: [
+    { class: 'person', score: 0.83, bbox: [180, 120, 280, 510] },
+    { class: 'laptop', score: 0.67, bbox: [700, 390, 220, 140] },
+    { class: 'cell phone', score: 0.51, bbox: [470, 305, 70, 120] },
+  ],
+  mobilenet_v2: [
+    { class: 'person', score: 0.9, bbox: [180, 120, 280, 510] },
+    { class: 'laptop', score: 0.77, bbox: [700, 390, 220, 140] },
+    { class: 'cell phone', score: 0.62, bbox: [470, 305, 70, 120] },
+  ],
+  yolov8n: [
+    { class: 'person', score: 0.96, bbox: [180, 120, 280, 510] },
+    { class: 'laptop', score: 0.9, bbox: [700, 390, 220, 140] },
+    { class: 'cell phone', score: 0.78, bbox: [470, 305, 70, 120] },
+    { class: 'cup', score: 0.64, bbox: [965, 350, 90, 130] },
+  ],
+  movenet_lightning: [
+    { class: 'person', score: 0.84, bbox: [180, 120, 280, 510] },
+  ],
+  movenet_thunder: [
+    { class: 'person', score: 0.93, bbox: [180, 120, 280, 510] },
+  ],
+  blazeface: [
+    { class: 'face', score: 0.97, bbox: [250, 110, 110, 120] },
+  ],
+};
+
 const App: React.FC = () => {
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('webcam');
   const [isWebcamActive, setIsWebcamActive] = useState<boolean>(false);
+  const [startWebcamWhenReady, setStartWebcamWhenReady] = useState<boolean>(false);
   const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
   const [modelLoaded, setModelLoaded] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,16 +71,64 @@ const App: React.FC = () => {
   const handleError = useCallback((message: string) => {
     setError(message);
     setIsWebcamActive(false);
+    setStartWebcamWhenReady(false);
   }, []);
 
-  const toggleWebcam = () => {
-    if (isWebcamActive) {
-      setIsWebcamActive(false);
-      setDetectedObjects([]);
-    } else {
-      setError(null);
+  const demoObjects = useMemo(
+    () => DEMO_DETECTIONS[modelName].filter(({ score }) => score >= confidenceThreshold),
+    [modelName, confidenceThreshold]
+  );
+
+  const isShowingWebcam = displayMode === 'webcam' && isWebcamActive;
+  const displayedObjects = displayMode === 'demo' ? demoObjects : detectedObjects;
+  const isWebcamButtonDisabled = displayMode === 'webcam' && !modelLoaded && !isWebcamActive;
+
+  const switchToWebcamMode = useCallback(() => {
+    setError(null);
+    setDisplayMode('webcam');
+    if (modelLoaded) {
+      setStartWebcamWhenReady(false);
       setIsWebcamActive(true);
+      return;
     }
+
+    setIsWebcamActive(false);
+    setStartWebcamWhenReady(true);
+  }, [modelLoaded]);
+
+  const switchToDemoMode = useCallback(() => {
+    setDetectedObjects([]);
+    setError(null);
+    setIsWebcamActive(false);
+    setStartWebcamWhenReady(false);
+    setDisplayMode('demo');
+  }, []);
+
+  useEffect(() => {
+    if (displayMode === 'webcam' && startWebcamWhenReady && modelLoaded) {
+      setIsWebcamActive(true);
+      setStartWebcamWhenReady(false);
+    }
+  }, [displayMode, startWebcamWhenReady, modelLoaded]);
+
+  const toggleWebcam = () => {
+    if (isShowingWebcam) {
+      setIsWebcamActive(false);
+      setStartWebcamWhenReady(false);
+      setDetectedObjects([]);
+      return;
+    }
+
+    switchToWebcamMode();
+  };
+
+  const toggleDemoMode = () => {
+    if (displayMode === 'demo') {
+      setDisplayMode('webcam');
+      return;
+    }
+
+    switchToDemoMode();
   };
 
   const handleModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -50,35 +144,51 @@ const App: React.FC = () => {
 
   const statusMessage = useMemo(() => {
     if (error) {
-      return `Error: ${error}`;
+      return '';
+    }
+
+    if (displayMode === 'demo') {
+      if (demoObjects.length === 0) {
+        return `Classroom demo mode active. No sample detections are visible at the current ${Math.round(confidenceThreshold * 100)}% confidence threshold.`;
+      }
+
+      return `Classroom demo mode active. Showing ${demoObjects.length} sample detections with a ${Math.round(confidenceThreshold * 100)}% confidence threshold.`;
+    }
+
+    if (startWebcamWhenReady && !modelLoaded) {
+      return 'Loading the selected vision model. The webcam will start automatically when loading finishes.';
     }
 
     if (!modelLoaded) {
       return 'Loading the selected vision model. The webcam control will become available when loading finishes.';
     }
 
-    if (isWebcamActive) {
+    if (isShowingWebcam) {
       return `Webcam active. Live detection is running with a ${Math.round(confidenceThreshold * 100)}% confidence threshold. Stop the webcam before changing models.`;
     }
 
     return `Vision model ready. Webcam is off. Current confidence threshold is ${Math.round(confidenceThreshold * 100)}%.`;
-  }, [confidenceThreshold, error, isWebcamActive, modelLoaded]);
+  }, [confidenceThreshold, demoObjects.length, displayMode, error, isShowingWebcam, modelLoaded, startWebcamWhenReady]);
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-200 flex flex-col font-sans">
       <Header />
       <main className="flex-grow container mx-auto p-4 flex flex-col items-center justify-center">
-        <p id="app-status" className="sr-only" role="status">
-          {statusMessage}
-        </p>
+        {statusMessage && (
+          <p id="app-status" className="sr-only" role="status">
+            {statusMessage}
+          </p>
+        )}
         <div className="w-full max-w-4xl bg-gray-800 rounded-lg shadow-2xl overflow-hidden border border-gray-700">
           <WebcamView
-            isActive={isWebcamActive}
+            isActive={isShowingWebcam}
             onDetections={handleDetections}
             onModelLoad={handleModelLoaded}
             onError={handleError}
             modelName={modelName}
             confidenceThreshold={confidenceThreshold}
+            mode={displayMode}
+            demoObjects={demoObjects}
           />
         </div>
 
@@ -86,20 +196,22 @@ const App: React.FC = () => {
           <div className="w-full md:w-1/3 flex flex-col items-center justify-center gap-4">
             <button
               onClick={toggleWebcam}
-              disabled={!modelLoaded}
+              disabled={isWebcamButtonDisabled}
               aria-controls="webcam-panel detection-results"
               aria-describedby="webcam-toggle-help"
               className={`w-full px-8 py-4 text-xl font-bold rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-lg
-                ${!modelLoaded
+                ${isWebcamButtonDisabled
                   ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  : isWebcamActive
+                  : isShowingWebcam
                   ? 'bg-red-600 hover:bg-red-700 text-white'
                   : 'bg-green-600 hover:bg-green-700 text-white'
                 }`}
             >
-              {!modelLoaded 
+              {displayMode === 'demo'
+                ? 'Switch to Webcam'
+                : !modelLoaded 
                 ? 'Loading Model...' 
-                : isWebcamActive 
+                : isShowingWebcam 
                 ? 'Stop Webcam' 
                 : 'Start Webcam'}
             </button>
@@ -107,40 +219,52 @@ const App: React.FC = () => {
               Start or stop the webcam. Model selection is disabled while live detection is running.
             </p>
 
-            <div className="w-full bg-gray-700/50 p-3 rounded-lg border border-gray-600">
-                <label htmlFor="threshold-slider" className="flex justify-between text-sm font-medium text-gray-300 mb-2">
-                  <span>Confidence Threshold</span>
-                  <span className="text-blue-400">{Math.round(confidenceThreshold * 100)}%</span>
-               </label>
-               <input
-                 id="threshold-slider"
-                 type="range"
-                 min="0.1"
-                 max="0.9"
-                  step="0.05"
-                  value={confidenceThreshold}
-                  onChange={handleThresholdChange}
-                  aria-describedby="threshold-help"
-                  className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-                <p id="threshold-help" className="mt-2 text-xs text-gray-400 text-center">
-                  Lower values show more possible matches. Higher values show only stronger matches.
-                </p>
-             </div>
+            <button
+              onClick={toggleDemoMode}
+              aria-controls="webcam-panel detection-results"
+              className={`w-full px-6 py-3 text-base font-semibold rounded-lg transition-colors border ${
+                displayMode === 'demo'
+                  ? 'bg-blue-600 border-blue-500 text-white hover:bg-blue-700'
+                  : 'bg-gray-800 border-blue-500 text-blue-300 hover:bg-gray-700'
+              }`}
+            >
+              {displayMode === 'demo' ? 'Exit Classroom Demo' : 'Use Classroom Demo'}
+            </button>
 
-             <div className="w-full">
-               <label htmlFor="model-select" className="block text-sm font-medium text-gray-400 mb-2 text-center">
-                 Vision Model Architecture
+            <div className="w-full bg-gray-700/50 p-3 rounded-lg border border-gray-600">
+              <label htmlFor="threshold-slider" className="flex justify-between text-sm font-medium text-gray-300 mb-2">
+                <span>Confidence Threshold</span>
+                <span className="text-blue-400">{Math.round(confidenceThreshold * 100)}%</span>
+              </label>
+              <input
+                id="threshold-slider"
+                type="range"
+                min="0.1"
+                max="0.9"
+                step="0.05"
+                value={confidenceThreshold}
+                onChange={handleThresholdChange}
+                aria-describedby="threshold-help"
+                className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+              <p id="threshold-help" className="mt-3 text-sm text-gray-300 leading-relaxed text-center">
+                Lower values show more possible matches, including uncertain ones. Higher values hide weaker guesses and keep only the most confident boxes.
+              </p>
+            </div>
+
+            <div className="w-full">
+              <label htmlFor="model-select" className="block text-sm font-medium text-gray-400 mb-2 text-center">
+                Vision Model Architecture
               </label>
               <select
                 id="model-select"
                 value={modelName}
-                 onChange={handleModelChange}
-                 disabled={isWebcamActive}
-                 className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5 text-center focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                 aria-label="Select vision model"
-                 aria-describedby="model-help"
-               >
+                onChange={handleModelChange}
+                disabled={isShowingWebcam}
+                className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5 text-center focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Select vision model"
+                aria-describedby="model-help"
+              >
                 <optgroup label="SSD Object Detection (COCO)">
                   <option value="lite_mobilenet_v2">SSD MobileNet V2 Lite (Fast)</option>
                   <option value="mobilenet_v2">SSD MobileNet V2 (Balanced)</option>
@@ -156,17 +280,27 @@ const App: React.FC = () => {
                 <optgroup label="Specialized">
                   <option value="blazeface">BlazeFace (Face Detection)</option>
                 </optgroup>
-               </select>
-               <p id="model-help" className="mt-2 text-xs text-center text-gray-400">
-                 Choose a model before starting the webcam. Stop live detection to switch models.
-               </p>
-             </div>
+              </select>
+              <p id="model-help" className="mt-2 text-xs text-center text-gray-400">
+                {MODEL_NOTES[modelName]}
+              </p>
+            </div>
             
-            {error && <p className="text-red-400 mt-2 text-center" role="alert">{error}</p>}
+            {error && (
+              <div className="w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-center" role="alert">
+                <p className="text-red-300">{error}</p>
+                <button
+                  onClick={switchToDemoMode}
+                  className="mt-3 inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  Use Classroom Demo Instead
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="w-full md:w-2/3">
-             <DetectionInfo objects={detectedObjects} isActive={isWebcamActive} />
+            <DetectionInfo objects={displayedObjects} isActive={isShowingWebcam} mode={displayMode} />
           </div>
         </div>
       </main>
