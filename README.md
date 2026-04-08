@@ -10,12 +10,7 @@ View the app in AI Studio: https://ai.studio/apps/1917f059-bbb1-4676-ba06-3af2eb
 
 ## What the demo supports
 
-- Live webcam inference in the browser
-- SSD MobileNet object detection models trained on COCO
-- YOLOv8 Nano object detection
-- BlazeFace face detection
-- MoveNet Lightning and Thunder single-person pose estimation
-- Adjustable confidence threshold and model selection in the UI
+**Prerequisites:** Node.js 20.19+ or 22.12+
 
 ## Current limitations
 
