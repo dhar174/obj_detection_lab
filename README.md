@@ -10,7 +10,7 @@ View the app in AI Studio: https://ai.studio/apps/1917f059-bbb1-4676-ba06-3af2eb
 
 ## What the demo supports
 
-**Prerequisites:** Node.js 20+
+**Prerequisites:** Node.js 20.19+ or 22.12+
 
 ## Current limitations
 
