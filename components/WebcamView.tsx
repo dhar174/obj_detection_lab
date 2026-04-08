@@ -1,5 +1,9 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
+import * as blazeface from '@tensorflow-models/blazeface';
+import * as cocoSsd from '@tensorflow-models/coco-ssd';
+import * as poseDetection from '@tensorflow-models/pose-detection';
+import * as tf from '@tensorflow/tfjs';
 import type { DetectedObject, ModelName } from '../types';
 
 // Declare global variables from script tags
