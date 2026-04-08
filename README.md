@@ -20,6 +20,6 @@ This Vite app runs the browser-based object detection demo locally with package-
 ## Runtime and deployment expectations
 
 - Frontend libraries are installed from `package.json` and bundled by Vite; the app no longer relies on CDN-provided globals at runtime.
-- Tailwind styles are compiled from `/home/runner/work/obj_detection_lab/obj_detection_lab/index.css` during the Vite build.
+- Tailwind styles are compiled from the root `index.css` during the Vite build.
 - The YOLOv8 Nano model URL is pinned to commit `b6a8bc691c0c1897802373d7da65dc889af1f451` from `Hyuto/yolov8-tfjs` to avoid the previous floating `@main` fetch.
 - The browser still needs camera permission, and model assets must be reachable the first time a model is loaded so the browser can fetch and cache them.
