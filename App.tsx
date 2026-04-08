@@ -127,19 +127,7 @@ const App: React.FC = () => {
     if (displayMode === 'demo') {
       setDisplayMode('webcam');
       return;
-    } else {
-      switchToWebcamMode();
     }
-
-    switchToDemoMode();
-  };
-
-  const toggleDemoMode = () => {
-    if (displayMode === 'demo') {
-      setDisplayMode('webcam');
-      return;
-    }
-
     switchToDemoMode();
   };
 
@@ -243,17 +231,6 @@ const App: React.FC = () => {
               {displayMode === 'demo' ? 'Exit Classroom Demo' : 'Use Classroom Demo'}
             </button>
 
-            <button
-              onClick={toggleDemoMode}
-              className={`w-full px-6 py-3 text-base font-semibold rounded-lg transition-colors border ${
-                displayMode === 'demo'
-                  ? 'bg-blue-600 border-blue-500 text-white hover:bg-blue-700'
-                  : 'bg-gray-800 border-blue-500 text-blue-300 hover:bg-gray-700'
-              }`}
-            >
-              {displayMode === 'demo' ? 'Exit Classroom Demo' : 'Use Classroom Demo'}
-            </button>
-
             <div className="w-full bg-gray-700/50 p-3 rounded-lg border border-gray-600">
               <label htmlFor="threshold-slider" className="flex justify-between text-sm font-medium text-gray-300 mb-2">
                 <span>Confidence Threshold</span>
@@ -274,27 +251,9 @@ const App: React.FC = () => {
                 Lower values show more possible matches, including uncertain ones. Higher values hide weaker guesses and keep only the most confident boxes.
               </p>
             </div>
-               <label htmlFor="threshold-slider" className="flex justify-between text-sm font-medium text-gray-300 mb-2">
-                 <span>Confidence Threshold</span>
-                 <span className="text-blue-400">{Math.round(confidenceThreshold * 100)}%</span>
-               </label>
-               <input
-                 id="threshold-slider"
-                 type="range"
-                 min="0.1"
-                 max="0.9"
-                 step="0.05"
-                 value={confidenceThreshold}
-                 onChange={handleThresholdChange}
-                  className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-                <p className="mt-3 text-sm text-gray-300 leading-relaxed">
-                  Lower values show more possible matches, including uncertain ones. Higher values hide weaker guesses and keep only the most confident boxes.
-                </p>
-             </div>
 
-             <div className="w-full">
-               <label htmlFor="model-select" className="block text-sm font-medium text-gray-400 mb-2 text-center">
+            <div className="w-full">
+              <label htmlFor="model-select" className="block text-sm font-medium text-gray-400 mb-2 text-center">
                 Vision Model Architecture
               </label>
               <select
@@ -326,7 +285,7 @@ const App: React.FC = () => {
                 {MODEL_NOTES[modelName]}
               </p>
             </div>
-            
+
             {error && (
               <div className="w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-center" role="alert">
                 <p className="text-red-300">{error}</p>
@@ -342,25 +301,6 @@ const App: React.FC = () => {
 
           <div className="w-full md:w-2/3">
             <DetectionInfo objects={displayedObjects} isActive={isShowingWebcam} mode={displayMode} />
-            {error && <p className="text-red-400 mt-2 text-center" role="alert">{error}</p>}
-               </select>
-             </div>
-             
-             {error && (
-               <div className="w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-center" role="alert">
-                 <p className="text-red-300">{error}</p>
-                 <button
-                    onClick={switchToDemoMode}
-                    className="mt-3 inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                  >
-                    Use Classroom Demo Instead
-                  </button>
-               </div>
-             )}
-          </div>
-
-          <div className="w-full md:w-2/3">
-             <DetectionInfo objects={displayedObjects} isActive={isShowingWebcam} mode={displayMode} />
           </div>
         </div>
 
