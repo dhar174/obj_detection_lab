@@ -113,13 +113,14 @@ const App: React.FC = () => {
   }, [displayMode, startWebcamWhenReady, modelLoaded]);
 
   const toggleWebcam = () => {
-    if (isWebcamActive) {
+    if (isShowingWebcam) {
       setIsWebcamActive(false);
       setStartWebcamWhenReady(false);
       setDetectedObjects([]);
-    } else {
-      switchToWebcamMode();
+      return;
     }
+
+    switchToWebcamMode();
   };
 
   const toggleDemoMode = () => {
@@ -127,7 +128,6 @@ const App: React.FC = () => {
       setDisplayMode('webcam');
       return;
     }
-
     switchToDemoMode();
   };
 
@@ -142,10 +142,43 @@ const App: React.FC = () => {
     setConfidenceThreshold(parseFloat(event.target.value));
   };
 
+  const statusMessage = useMemo(() => {
+    if (error) {
+      return '';
+    }
+
+    if (displayMode === 'demo') {
+      if (demoObjects.length === 0) {
+        return `Classroom demo mode active. No sample detections are visible at the current ${Math.round(confidenceThreshold * 100)}% confidence threshold.`;
+      }
+
+      return `Classroom demo mode active. Showing ${demoObjects.length} sample detections with a ${Math.round(confidenceThreshold * 100)}% confidence threshold.`;
+    }
+
+    if (startWebcamWhenReady && !modelLoaded) {
+      return 'Loading the selected vision model. The webcam will start automatically when loading finishes.';
+    }
+
+    if (!modelLoaded) {
+      return 'Loading the selected vision model. The webcam control will become available when loading finishes.';
+    }
+
+    if (isShowingWebcam) {
+      return `Webcam active. Live detection is running with a ${Math.round(confidenceThreshold * 100)}% confidence threshold. Stop the webcam before changing models.`;
+    }
+
+    return `Vision model ready. Webcam is off. Current confidence threshold is ${Math.round(confidenceThreshold * 100)}%.`;
+  }, [confidenceThreshold, demoObjects.length, displayMode, error, isShowingWebcam, modelLoaded, startWebcamWhenReady]);
+
   return (
     <div className="min-h-screen bg-gray-900 text-gray-200 flex flex-col font-sans">
       <Header />
       <main className="flex-grow container mx-auto p-4 flex flex-col items-center justify-center">
+        {statusMessage && (
+          <p id="app-status" className="sr-only" role="status">
+            {statusMessage}
+          </p>
+        )}
         <div className="w-full max-w-4xl bg-gray-800 rounded-lg shadow-2xl overflow-hidden border border-gray-700">
           <WebcamView
             isActive={isShowingWebcam}
@@ -164,6 +197,8 @@ const App: React.FC = () => {
             <button
               onClick={toggleWebcam}
               disabled={isWebcamButtonDisabled}
+              aria-controls="webcam-panel detection-results"
+              aria-describedby="webcam-toggle-help"
               className={`w-full px-8 py-4 text-xl font-bold rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-lg
                 ${isWebcamButtonDisabled
                   ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
@@ -171,7 +206,6 @@ const App: React.FC = () => {
                   ? 'bg-red-600 hover:bg-red-700 text-white'
                   : 'bg-green-600 hover:bg-green-700 text-white'
                 }`}
-              aria-live="polite"
             >
               {displayMode === 'demo'
                 ? 'Switch to Webcam'
@@ -181,9 +215,13 @@ const App: React.FC = () => {
                 ? 'Stop Webcam' 
                 : 'Start Webcam'}
             </button>
+            <p id="webcam-toggle-help" className="text-sm text-center text-gray-400">
+              Start or stop the webcam. Model selection is disabled while live detection is running.
+            </p>
 
             <button
               onClick={toggleDemoMode}
+              aria-controls="webcam-panel detection-results"
               className={`w-full px-6 py-3 text-base font-semibold rounded-lg transition-colors border ${
                 displayMode === 'demo'
                   ? 'bg-blue-600 border-blue-500 text-white hover:bg-blue-700'
@@ -194,37 +232,39 @@ const App: React.FC = () => {
             </button>
 
             <div className="w-full bg-gray-700/50 p-3 rounded-lg border border-gray-600">
-               <label htmlFor="threshold-slider" className="flex justify-between text-sm font-medium text-gray-300 mb-2">
-                 <span>Confidence Threshold</span>
-                 <span className="text-blue-400">{Math.round(confidenceThreshold * 100)}%</span>
-               </label>
-               <input
-                 id="threshold-slider"
-                 type="range"
-                 min="0.1"
-                 max="0.9"
-                 step="0.05"
-                 value={confidenceThreshold}
-                 onChange={handleThresholdChange}
-                  className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-                <p className="mt-3 text-sm text-gray-300 leading-relaxed">
-                  Lower values show more possible matches, including uncertain ones. Higher values hide weaker guesses and keep only the most confident boxes.
-                </p>
-             </div>
+              <label htmlFor="threshold-slider" className="flex justify-between text-sm font-medium text-gray-300 mb-2">
+                <span>Confidence Threshold</span>
+                <span className="text-blue-400">{Math.round(confidenceThreshold * 100)}%</span>
+              </label>
+              <input
+                id="threshold-slider"
+                type="range"
+                min="0.1"
+                max="0.9"
+                step="0.05"
+                value={confidenceThreshold}
+                onChange={handleThresholdChange}
+                aria-describedby="threshold-help"
+                className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+              <p id="threshold-help" className="mt-3 text-sm text-gray-300 leading-relaxed text-center">
+                Lower values show more possible matches, including uncertain ones. Higher values hide weaker guesses and keep only the most confident boxes.
+              </p>
+            </div>
 
-             <div className="w-full">
-               <label htmlFor="model-select" className="block text-sm font-medium text-gray-400 mb-2 text-center">
+            <div className="w-full">
+              <label htmlFor="model-select" className="block text-sm font-medium text-gray-400 mb-2 text-center">
                 Vision Model Architecture
               </label>
               <select
                 id="model-select"
                 value={modelName}
                 onChange={handleModelChange}
-                disabled={isWebcamActive}
+                disabled={isShowingWebcam}
                 className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5 text-center focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                 aria-label="Select vision model"
-               >
+                aria-label="Select vision model"
+                aria-describedby="model-help"
+              >
                 <optgroup label="SSD Object Detection (COCO)">
                   <option value="lite_mobilenet_v2">SSD MobileNet V2 Lite (Fast)</option>
                   <option value="mobilenet_v2">SSD MobileNet V2 (Balanced)</option>
@@ -241,7 +281,7 @@ const App: React.FC = () => {
                   <option value="blazeface">BlazeFace (Face Detection)</option>
                 </optgroup>
               </select>
-              <p className="mt-2 text-xs text-center text-gray-400">
+              <p id="model-help" className="mt-2 text-xs text-center text-gray-400">
                 {MODEL_NOTES[modelName]}
               </p>
             </div>
@@ -264,7 +304,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="w-full md:w-2/3">
-             <DetectionInfo objects={displayedObjects} isActive={isShowingWebcam} mode={displayMode} />
+            <DetectionInfo objects={displayedObjects} isActive={isShowingWebcam} mode={displayMode} />
           </div>
         </div>
 

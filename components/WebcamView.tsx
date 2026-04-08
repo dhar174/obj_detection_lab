@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useCallback } from 'react';
 import * as blazeface from '@tensorflow-models/blazeface';
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
@@ -57,15 +56,15 @@ const BBOX_COLORS: { [key: string]: string } = {
 
 // COCO Class Labels for YOLO
 const YOLO_LABELS = [
-  'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 
-  'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 
-  'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 
-  'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball', 
-  'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket', 
-  'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple', 
-  'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 
-  'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 
-  'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 
+  'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat',
+  'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat',
+  'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack',
+  'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball',
+  'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket',
+  'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
+  'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair',
+  'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse',
+  'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator',
   'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
 ];
 
@@ -271,15 +270,15 @@ const getMoveNetBoundingBox = (
   return [left, top, right - left, bottom - top];
 };
 
-export const WebcamView: React.FC<WebcamViewProps> = ({ 
-  isActive, 
-  modelName, 
-  confidenceThreshold, 
+export const WebcamView: React.FC<WebcamViewProps> = ({
+  isActive,
+  modelName,
+  confidenceThreshold,
   mode,
   demoObjects,
-  onDetections, 
-  onModelLoad, 
-  onError 
+  onDetections,
+  onModelLoad,
+  onError
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -310,7 +309,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
       ctx.fillStyle = color;
       ctx.font = '16px sans-serif';
       const textWidth = ctx.measureText(text).width;
-      const labelY = Math.max(0, Math.min(canvas.height - 25, y > 25 ? y - 5 : y + height - 25)); 
+      const labelY = Math.max(0, Math.min(canvas.height - 25, y > 25 ? y - 5 : y + height - 25));
       ctx.fillRect(x, labelY, textWidth + 10, 25);
       
       ctx.fillStyle = '#000000';
@@ -334,8 +333,8 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     }
 
     if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
     }
     
     let predictions: DetectedObject[] = [];
@@ -347,130 +346,108 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     }
     
     try {
-        if (modelName === 'blazeface') {
-            const facePredictions = await modelRef.current.estimateFaces(video, false);
-            predictions = facePredictions.map((pred: any) => ({
-              bbox: [
-                pred.topLeft[0],
-                pred.topLeft[1],
-                pred.bottomRight[0] - pred.topLeft[0],
-                pred.bottomRight[1] - pred.topLeft[1],
-              ],
-              class: 'face',
-              score: pred.probability[0],
-            }));
-            predictions = predictions.filter(p => p.score >= confidenceThreshold);
+      if (modelName === 'blazeface') {
+        const facePredictions = await modelRef.current.estimateFaces(video, false);
+        predictions = facePredictions.map((pred: any) => ({
+          bbox: [
+            pred.topLeft[0],
+            pred.topLeft[1],
+            pred.bottomRight[0] - pred.topLeft[0],
+            pred.bottomRight[1] - pred.topLeft[1],
+          ],
+          class: 'face',
+          score: pred.probability[0],
+        }));
+        predictions = predictions.filter(p => p.score >= confidenceThreshold);
+      } else if (modelName.startsWith('movenet')) {
+        const poses = await modelRef.current.estimatePoses(video);
+        predictions = poses
+          .filter((pose: any) => pose.score >= confidenceThreshold)
+          .map((pose: any) => {
+            const bbox = getMoveNetBoundingBox(
+              pose,
+              video.videoWidth,
+              video.videoHeight,
+              confidenceThreshold
+            );
 
-        } else if (modelName.startsWith('movenet')) {
-            const poses = await modelRef.current.estimatePoses(video);
-            predictions = poses
-                .filter((pose: any) => pose.score >= confidenceThreshold)
-                .map((pose: any) => {
-                    const bbox = getMoveNetBoundingBox(
-                      pose,
-                      video.videoWidth,
-                      video.videoHeight,
-                      confidenceThreshold
-                    );
-
-                    if (!bbox) {
-                      return null;
-                    }
-
-                    return {
-                        bbox,
-                        class: 'person',
-                        score: pose.score
-                    };
-                })
-                .filter((prediction): prediction is DetectedObject => prediction !== null);
-        } else if (modelName === 'yolov8n') {
-            const { tf: runtimeTf } = getRuntimeLibraryReferences();
-            if (!runtimeTf) {
-                throw new Error('TensorFlow runtime is unavailable.');
-            }
-            // YOLOv8 Detection Logic
-            const input = tf.tidy(() => {
-                return tf.image.resizeBilinear(tf.browser.fromPixels(video), [YOLO_INPUT_SIZE, YOLO_INPUT_SIZE])
-                    .div(255.0)
-                    .expandDims(0);
-            });
-
-            // Execute model: Output shape [1, 84, 8400]
-            const res = await modelRef.current.execute(input);
-            
-            const [boxes, scores, classes] = runtimeTf.tidy(() => {
-                const output = res.squeeze(0); // [84, 8400]
-                const trans = output.transpose([1, 0]); // [8400, 84]
-                
-                // Slice bounding boxes [xc, yc, w, h]
-                const boxesRaw = trans.slice([0, 0], [8400, 4]);
-                const scoresRaw = trans.slice([0, 4], [8400, 80]);
-                
-                const maxScores = scoresRaw.max(1);
-                const maxClasses = scoresRaw.argMax(1);
-                
-                // Convert [xc, yc, w, h] to [y1, x1, y2, x2] for NMS
-                const w = boxesRaw.slice([0, 2], [-1, 1]);
-                const h = boxesRaw.slice([0, 3], [-1, 1]);
-                const xc = boxesRaw.slice([0, 0], [-1, 1]);
-                const yc = boxesRaw.slice([0, 1], [-1, 1]);
-                
-                const y1 = yc.sub(h.div(2));
-                const x1 = xc.sub(w.div(2));
-                const y2 = yc.add(h.div(2));
-                const x2 = xc.add(w.div(2));
-                
-                const boxesNMS = runtimeTf.concat([y1, x1, y2, x2], 1);
-                
-                return [boxesNMS, maxScores, maxClasses];
-            });
-
-            // NMS
-            const nms = await tf.image.nonMaxSuppressionAsync(boxes, scores, YOLO_MAX_DETECTIONS, 0.45, confidenceThreshold);
-            const { boxesData, scoresData, classesData, detectionCount } = runtimeTf.tidy(() => {
-                const selectedBoxes = boxes.gather(nms, 0);
-                const selectedScores = scores.gather(nms, 0);
-                const selectedClasses = classes.gather(nms, 0);
-
-                return {
-                    boxesData: Array.from(selectedBoxes.dataSync()),
-                    scoresData: Array.from(selectedScores.dataSync()),
-                    classesData: Array.from(selectedClasses.dataSync()),
-                    detectionCount: nms.size,
-                };
-            });
-            tf.dispose([res, input, boxes, scores, classes, nms]);
-            
-            // Scale factors
-            const scaleX = video.videoWidth / YOLO_INPUT_SIZE;
-            const scaleY = video.videoHeight / YOLO_INPUT_SIZE;
-
-            predictions = [];
-            for (let i = 0; i < detectionCount; i++) {
-                const y1 = boxesData[i * 4] * scaleY;
-                const x1 = boxesData[i * 4 + 1] * scaleX;
-                const y2 = boxesData[i * 4 + 2] * scaleY;
-                const x2 = boxesData[i * 4 + 3] * scaleX;
-                const score = scoresData[i];
-                const label = YOLO_LABELS[classesData[i]];
-
-                predictions.push({
-                    bbox: [x1, y1, x2 - x1, y2 - y1], // [x, y, w, h]
-                    class: label || 'unknown',
-                    score: score
-                });
+            if (!bbox) {
+              return null;
             }
 
-            // Cleanup tensors
-            runtimeTf.dispose([res, input, boxes, scores, classes, nms]);
+            return {
+              bbox,
+              class: 'person',
+              score: pose.score
+            };
+          })
+          .filter((prediction): prediction is DetectedObject => prediction !== null);
+      } else if (modelName === 'yolov8n') {
+        const input = tf.tidy(() => {
+          return tf.image.resizeBilinear(tf.browser.fromPixels(video), [YOLO_INPUT_SIZE, YOLO_INPUT_SIZE])
+            .div(255.0)
+            .expandDims(0);
+        });
 
-        } else {
-            // COCO-SSD
-            predictions = await modelRef.current.detect(video, undefined, confidenceThreshold);
+        const res = await modelRef.current.execute(input);
+        
+        const [boxes, scores, classes] = tf.tidy(() => {
+          const output = res.squeeze(0);
+          const trans = output.transpose([1, 0]);
+          const boxesRaw = trans.slice([0, 0], [8400, 4]);
+          const scoresRaw = trans.slice([0, 4], [8400, 80]);
+          const maxScores = scoresRaw.max(1);
+          const maxClasses = scoresRaw.argMax(1);
+          const w = boxesRaw.slice([0, 2], [-1, 1]);
+          const h = boxesRaw.slice([0, 3], [-1, 1]);
+          const xc = boxesRaw.slice([0, 0], [-1, 1]);
+          const yc = boxesRaw.slice([0, 1], [-1, 1]);
+          const y1 = yc.sub(h.div(2));
+          const x1 = xc.sub(w.div(2));
+          const y2 = yc.add(h.div(2));
+          const x2 = xc.add(w.div(2));
+          const boxesNMS = tf.concat([y1, x1, y2, x2], 1);
+          
+          return [boxesNMS, maxScores, maxClasses];
+        });
+
+        const nms = await tf.image.nonMaxSuppressionAsync(boxes, scores, YOLO_MAX_DETECTIONS, 0.45, confidenceThreshold);
+        const selectedBoxes = boxes.gather(nms, 0);
+        const selectedScores = scores.gather(nms, 0);
+        const selectedClasses = classes.gather(nms, 0);
+        const boxesData = Array.from(selectedBoxes.dataSync());
+        const scoresData = Array.from(selectedScores.dataSync());
+        const classesData = Array.from(selectedClasses.dataSync());
+        const detectionCount = nms.size;
+        tf.dispose([selectedBoxes, selectedScores, selectedClasses, res, input, boxes, scores, classes, nms]);
+        
+        const scaleX = video.videoWidth / YOLO_INPUT_SIZE;
+        const scaleY = video.videoHeight / YOLO_INPUT_SIZE;
+
+        predictions = [];
+        for (let i = 0; i < detectionCount; i++) {
+          const y1 = boxesData[i * 4] * scaleY;
+          const x1 = boxesData[i * 4 + 1] * scaleX;
+          const y2 = boxesData[i * 4 + 2] * scaleY;
+          const x2 = boxesData[i * 4 + 3] * scaleX;
+          const score = scoresData[i];
+          const label = YOLO_LABELS[classesData[i]];
+
+          predictions.push({
+            bbox: [x1, y1, x2 - x1, y2 - y1],
+            class: label || 'unknown',
+            score: score
+          });
         }
+      } else {
+        predictions = await modelRef.current.detect(video, undefined, confidenceThreshold);
+      }
     } catch (e) {
-        console.warn("Detection error:", e);
+      console.warn('Detection error:', e);
+    }
+
+    if (modelName === 'yolov8n') {
+      lastDetectionTimeRef.current = performance.now();
     }
 
     if (modelName === 'yolov8n') {
@@ -505,7 +482,6 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   }, [mode, demoObjects, drawPredictions]);
   
-  // Load Model
   useEffect(() => {
     const loadId = ++activeModelLoadId.current;
     let isStale = false;
@@ -601,6 +577,9 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
         }
 
         console.error(`Failed to load ${modelName} model`, error);
+        let errorMsg = `Failed to load ${modelName} model.`;
+        if (error.message && error.message.includes('fetch')) {
+          errorMsg += ' Network error. Please check your connection or try disabling AdBlock.';
         if (!isCancelled) {
           onError(getModelLoadErrorMessage(modelName, error, libraries));
         }
@@ -634,7 +613,6 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     };
   }, [mode, modelName, onModelLoad, onError]);
 
-  // Effect 1: Handle Webcam Stream
   useEffect(() => {
     let isMounted = true;
 
@@ -654,46 +632,49 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
           return;
         }
 
-        streamRef.current = stream;
-        
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = async () => {
+          streamRef.current = stream;
+          
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.onloadedmetadata = async () => {
               if (!isMounted || !videoRef.current) return;
               try {
-                  await videoRef.current.play();
-              } catch (error) {
-                  const errorName = error instanceof DOMException ? error.name : undefined;
-                  if (errorName !== 'AbortError' && errorName !== 'NotAllowedError') {
-                       console.error("Error playing video:", error);
-                  }
-                  if (isMounted && error instanceof DOMException && error.name === 'NotAllowedError') {
-                    onError(getWebcamSetupErrorMessage(error));
-                  }
+                await videoRef.current.play();
+              } catch (e: any) {
+                if (e.name !== 'AbortError' && e.name !== 'NotAllowedError') {
+                  console.error('Error playing video:', e);
+                }
               }
-          };
+            };
+          }
+        } else {
+          throw new Error('Your browser does not support webcam access.');
         }
       } catch (err) {
         if (!isMounted) return;
-        console.error("Error accessing webcam:", err);
-        onError(getWebcamSetupErrorMessage(err));
+        console.error('Error accessing webcam:', err);
+        let message = 'Could not access webcam. Please ensure it is not in use by another application.';
+        if (err instanceof DOMException && err.name === 'NotAllowedError') {
+          message = 'Webcam access denied. Please grant permission in your browser settings.';
+        }
+        onError(message);
       }
     };
 
     const stopStream = () => {
       if (videoRef.current) {
-         videoRef.current.pause();
-         videoRef.current.srcObject = null;
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
       }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
       }
       if (canvasRef.current) {
-          const ctx = canvasRef.current.getContext('2d');
-          if (ctx) {
-              ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-          }
+        const ctx = canvasRef.current.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        }
       }
     };
 
@@ -709,21 +690,31 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     };
   }, [isActive, onError]);
 
-  // Effect 2: Handle Detection Loop
   useEffect(() => {
     if (isActive) {
-        animationFrameId.current = requestAnimationFrame(detectFrame);
+      animationFrameId.current = requestAnimationFrame(detectFrame);
     }
     
     return () => {
-        if (animationFrameId.current) {
-            cancelAnimationFrame(animationFrameId.current);
-        }
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+      }
     };
   }, [isActive, detectFrame]);
 
   return (
-    <div className="relative aspect-video bg-black rounded-lg">
+    <div
+      id="webcam-panel"
+      role="region"
+      aria-label={mode === 'demo' ? 'Classroom demo preview' : isActive ? 'Live webcam preview' : 'Webcam preview'}
+      aria-describedby="webcam-view-help"
+      className="relative aspect-video bg-black rounded-lg"
+    >
+      <p id="webcam-view-help" className="sr-only">
+        {mode === 'demo'
+          ? 'A prepared classroom demo scene appears here. Sample detection results are also listed in the detected objects panel.'
+          : 'The webcam preview appears here. Detection results are also listed in the detected objects panel.'}
+      </p>
       {mode === 'demo' ? (
         <>
           <svg
@@ -767,13 +758,23 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
         aria-hidden="true"
       />
       {!isActive && mode !== 'demo' && (
-         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
-           <div className="text-center p-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              <p className="mt-4 text-xl text-gray-400">Webcam is Inactive</p>
-           </div>
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
+          <div className="text-center p-4">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="mx-auto h-16 w-16 text-gray-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <p className="mt-4 text-xl text-gray-400" role="status" aria-live="polite">
+              Webcam is inactive.
+            </p>
+          </div>
         </div>
       )}
     </div>
