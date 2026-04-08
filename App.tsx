@@ -14,6 +14,8 @@ const MODEL_NOTES: Record<ModelName, string> = {
   movenet_lightning: 'Uses confident pose keypoints plus light padding to keep person boxes steadier while staying fast.',
   movenet_thunder: 'More accurate MoveNet variant with the same steadier person-box logic for comparison.',
   yolov8n: 'Runs at a slightly reduced input size and capped refresh rate to stay smoother on classroom laptops.'
+};
+
 type DisplayMode = 'webcam' | 'demo';
 
 const DEMO_DETECTIONS: Record<ModelName, DetectedObject[]> = {
@@ -251,23 +253,14 @@ const App: React.FC = () => {
               >
                 <p className="font-semibold text-red-300">Action needed</p>
                 <p className="mt-1 whitespace-pre-line">{error}</p>
+                <button
+                  onClick={switchToDemoMode}
+                  className="mt-3 inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  Use Classroom Demo Instead
+                </button>
               </div>
             )}
-            {error && <p className="text-red-400 mt-2 text-center" role="alert">{error}</p>}
-               </select>
-             </div>
-             
-             {error && (
-               <div className="w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-center" role="alert">
-                 <p className="text-red-300">{error}</p>
-                 <button
-                    onClick={switchToDemoMode}
-                    className="mt-3 inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                  >
-                    Use Classroom Demo Instead
-                  </button>
-               </div>
-             )}
           </div>
 
           <div className="w-full md:w-2/3">

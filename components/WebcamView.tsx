@@ -161,6 +161,11 @@ const getWebcamSetupErrorMessage = (error?: unknown): string => {
   const isInsecureNonLocalContext = !window.isSecureContext
     && window.location.hostname !== 'localhost'
     && window.location.hostname !== '127.0.0.1';
+  const errorName = error instanceof Error
+    ? error.name
+    : typeof error === 'object' && error !== null && 'name' in error && typeof error.name === 'string'
+      ? error.name
+      : undefined;
 
   if (!navigator.mediaDevices?.getUserMedia) {
     return isInsecureNonLocalContext
@@ -168,8 +173,14 @@ const getWebcamSetupErrorMessage = (error?: unknown): string => {
       : 'This browser does not support webcam access. Use a current version of Chrome, Edge, or Safari.';
   }
 
+  if (errorName === 'TypeError') {
+    return isInsecureNonLocalContext
+      ? 'Webcam access requires HTTPS or localhost in this browser. Open the app from a secure address and try again.'
+      : 'This browser could not start the webcam with the requested settings. Refresh the page or try a different browser.';
+  }
+
   if (error instanceof DOMException) {
-    switch (error.name) {
+    switch (errorName) {
       case 'NotAllowedError':
       case 'PermissionDeniedError':
         return isInsecureNonLocalContext
@@ -188,16 +199,14 @@ const getWebcamSetupErrorMessage = (error?: unknown): string => {
         return 'Webcam startup was interrupted. Try starting it again, or reconnect the camera if it was unplugged.';
       case 'SecurityError':
         return 'The browser blocked webcam access for this page. Check site permissions or privacy extensions, then reload.';
-      case 'TypeError':
-        return isInsecureNonLocalContext
-          ? 'Webcam access requires HTTPS or localhost in this browser. Open the app from a secure address and try again.'
-          : 'This browser could not start the webcam with the requested settings. Refresh the page or try a different browser.';
       default:
         break;
     }
   }
 
   return 'Could not access the webcam. Make sure the camera is connected, not already in use, and allowed in browser settings.';
+};
+
 // Keep pose boxes stable by ignoring very low-confidence joints.
 const MOVENET_MIN_KEYPOINT_SCORE = 0.3;
 // Add a small margin so the box does not hug the outermost confident joints.
@@ -402,14 +411,19 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
 
             // NMS
             const nms = await tf.image.nonMaxSuppressionAsync(boxes, scores, YOLO_MAX_DETECTIONS, 0.45, confidenceThreshold);
-            const selectedBoxes = boxes.gather(nms, 0);
-            const selectedScores = scores.gather(nms, 0);
-            const selectedClasses = classes.gather(nms, 0);
-            const boxesData = Array.from(selectedBoxes.dataSync());
-            const scoresData = Array.from(selectedScores.dataSync());
-            const classesData = Array.from(selectedClasses.dataSync());
-            const detectionCount = nms.size;
-            tf.dispose([selectedBoxes, selectedScores, selectedClasses, res, input, boxes, scores, classes, nms]);
+            const { boxesData, scoresData, classesData, detectionCount } = runtimeTf.tidy(() => {
+                const selectedBoxes = boxes.gather(nms, 0);
+                const selectedScores = scores.gather(nms, 0);
+                const selectedClasses = classes.gather(nms, 0);
+
+                return {
+                    boxesData: Array.from(selectedBoxes.dataSync()),
+                    scoresData: Array.from(selectedScores.dataSync()),
+                    classesData: Array.from(selectedClasses.dataSync()),
+                    detectionCount: selectedScores.shape[0] ?? 0,
+                };
+            });
+            tf.dispose([res, input, boxes, scores, classes, nms]);
             
             // Scale factors
             const scaleX = video.videoWidth / YOLO_INPUT_SIZE;
@@ -562,24 +576,6 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [modelName, onModelLoad, onError]);
-    
-    // Ensure TF is ready before loading
-    if (typeof tf === 'undefined') {
-      onModelLoad(false);
-      onError('Vision libraries did not load. You can still use Classroom Demo mode for instruction.');
-      return;
-    }
-
-    tf.ready()
-      .then(() => {
-        loadModel();
-      })
-      .catch(() => {
-        onModelLoad(false);
-        onError('Vision libraries did not finish loading. You can still use Classroom Demo mode for instruction.');
-      });
-    
   }, [mode, modelName, onModelLoad, onError]);
 
   // Effect 1: Handle Webcam Stream
