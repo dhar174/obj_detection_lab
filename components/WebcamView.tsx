@@ -157,15 +157,23 @@ const getModelLoadErrorMessage = (modelName: ModelName, error: unknown, librarie
   return `${modelLabel} could not finish loading. Refresh the page first, then switch to another model if the problem continues.`;
 };
 
+const getErrorName = (error?: unknown): string | undefined => {
+  if (error instanceof Error) {
+    return error.name;
+  }
+
+  if (typeof error === 'object' && error !== null && 'name' in error && typeof error.name === 'string') {
+    return error.name;
+  }
+
+  return undefined;
+};
+
 const getWebcamSetupErrorMessage = (error?: unknown): string => {
   const isInsecureNonLocalContext = !window.isSecureContext
     && window.location.hostname !== 'localhost'
     && window.location.hostname !== '127.0.0.1';
-  const errorName = error instanceof Error
-    ? error.name
-    : typeof error === 'object' && error !== null && 'name' in error && typeof error.name === 'string'
-      ? error.name
-      : undefined;
+  const errorName = getErrorName(error);
 
   if (!navigator.mediaDevices?.getUserMedia) {
     return isInsecureNonLocalContext
@@ -420,7 +428,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
                     boxesData: Array.from(selectedBoxes.dataSync()),
                     scoresData: Array.from(selectedScores.dataSync()),
                     classesData: Array.from(selectedClasses.dataSync()),
-                    detectionCount: selectedScores.shape[0] ?? 0,
+                    detectionCount: nms.size,
                 };
             });
             tf.dispose([res, input, boxes, scores, classes, nms]);
