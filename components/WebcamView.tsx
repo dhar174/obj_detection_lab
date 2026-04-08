@@ -284,6 +284,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modelRef = useRef<any>(null);
+  const activeModelLoadId = useRef(0);
   const animationFrameId = useRef<number>();
   const streamRef = useRef<MediaStream | null>(null);
   const lastDetectionTimeRef = useRef<number>(0);
@@ -506,6 +507,9 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
   
   // Load Model
   useEffect(() => {
+    const loadId = ++activeModelLoadId.current;
+    let isStale = false;
+
     let isCancelled = false;
     if (mode === 'demo') {
       onModelLoad(false);
@@ -517,6 +521,10 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     }
 
     const loadModel = async () => {
+      if (isStale || loadId !== activeModelLoadId.current) {
+        return;
+      }
+
       onModelLoad(false);
       if (typeof tf === 'undefined') {
         onError('Vision libraries did not load. You can still use Classroom Demo mode for instruction.');
@@ -577,9 +585,21 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
           loadedModel?.dispose?.();
           return;
         }
+
+        if (isStale || loadId !== activeModelLoadId.current) {
+          if (loadedModel?.dispose) {
+            loadedModel.dispose();
+          }
+          return;
+        }
+
         modelRef.current = loadedModel;
         onModelLoad(true);
-      } catch (error) {
+      } catch (error: any) {
+        if (isStale || loadId !== activeModelLoadId.current) {
+          return;
+        }
+
         console.error(`Failed to load ${modelName} model`, error);
         if (!isCancelled) {
           onError(getModelLoadErrorMessage(modelName, error, libraries));
@@ -587,10 +607,30 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
       }
     };
 
-    void loadModel();
+    // Ensure TF is ready before loading
+    if (typeof tf === 'undefined') {
+      onModelLoad(false);
+      onError('Vision libraries did not load. You can still use Classroom Demo mode for instruction.');
+      return () => {
+        isStale = true;
+      };
+    }
+
+    tf.ready()
+      .then(() => {
+        void loadModel();
+      })
+      .catch(() => {
+        if (isStale || loadId !== activeModelLoadId.current) {
+          return;
+        }
+
+        onModelLoad(false);
+        onError('Vision libraries did not finish loading. You can still use Classroom Demo mode for instruction.');
+      });
 
     return () => {
-      isCancelled = true;
+      isStale = true;
     };
   }, [mode, modelName, onModelLoad, onError]);
 
