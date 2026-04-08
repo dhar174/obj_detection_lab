@@ -1,6 +1,6 @@
 {
-  "name": "Classroom Object Detection Demo",
-  "description": "A browser-based classroom demo for real-time webcam inference with TensorFlow.js models including SSD MobileNet, BlazeFace, MoveNet, and YOLOv8 Nano.",
+  "name": "Webcam Object Detection Demo",
+  "description": "A browser-based webcam demo for real-time vision inference with TensorFlow.js. It supports SSD MobileNet (COCO), YOLOv8 Nano, BlazeFace face detection, and MoveNet single-person pose estimation directly in the browser.",
   "requestFramePermissions": [
     "camera"
   ]
