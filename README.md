@@ -1,5 +1,8 @@
 # Classroom Object Detection Demo
 
+# Webcam object detection demo
+
+This Vite app runs the browser-based object detection demo locally with package-managed React, TensorFlow.js, and Tailwind CSS dependencies.
 This repository contains a small React + TypeScript classroom demo for running browser-based object detection from a webcam feed. The app loads TensorFlow.js models in the browser and can switch between SSD MobileNet, BlazeFace, MoveNet, and a YOLOv8 Nano option.
 
 ## Prerequisites

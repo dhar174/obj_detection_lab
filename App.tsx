@@ -285,10 +285,14 @@ const App: React.FC = () => {
                 {MODEL_NOTES[modelName]}
               </p>
             </div>
-
+            
             {error && (
-              <div className="w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-center" role="alert">
-                <p className="text-red-300">{error}</p>
+              <div
+                className="w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-left text-sm text-red-100"
+                role="alert"
+              >
+                <p className="font-semibold text-red-300">Action needed</p>
+                <p className="mt-1 whitespace-pre-line">{error}</p>
                 <button
                   onClick={switchToDemoMode}
                   className="mt-3 inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
