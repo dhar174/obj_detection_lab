@@ -157,6 +157,10 @@ const getModelLoadErrorMessage = (modelName: ModelName, error: unknown, librarie
   return `${modelLabel} could not finish loading. Refresh the page first, then switch to another model if the problem continues.`;
 };
 
+/**
+ * getUserMedia failures can arrive as DOMException instances or plain TypeError-style errors,
+ * so normalize the name lookup before mapping them to user-facing webcam guidance.
+ */
 const getErrorName = (error?: unknown): string | undefined => {
   if (error instanceof Error) {
     return error.name;
