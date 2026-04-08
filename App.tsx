@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { WebcamView } from './components/WebcamView';
 import { DetectionInfo } from './components/DetectionInfo';
@@ -126,6 +127,17 @@ const App: React.FC = () => {
     if (displayMode === 'demo') {
       setDisplayMode('webcam');
       return;
+    } else {
+      switchToWebcamMode();
+    }
+
+    switchToDemoMode();
+  };
+
+  const toggleDemoMode = () => {
+    if (displayMode === 'demo') {
+      setDisplayMode('webcam');
+      return;
     }
 
     switchToDemoMode();
@@ -231,6 +243,17 @@ const App: React.FC = () => {
               {displayMode === 'demo' ? 'Exit Classroom Demo' : 'Use Classroom Demo'}
             </button>
 
+            <button
+              onClick={toggleDemoMode}
+              className={`w-full px-6 py-3 text-base font-semibold rounded-lg transition-colors border ${
+                displayMode === 'demo'
+                  ? 'bg-blue-600 border-blue-500 text-white hover:bg-blue-700'
+                  : 'bg-gray-800 border-blue-500 text-blue-300 hover:bg-gray-700'
+              }`}
+            >
+              {displayMode === 'demo' ? 'Exit Classroom Demo' : 'Use Classroom Demo'}
+            </button>
+
             <div className="w-full bg-gray-700/50 p-3 rounded-lg border border-gray-600">
               <label htmlFor="threshold-slider" className="flex justify-between text-sm font-medium text-gray-300 mb-2">
                 <span>Confidence Threshold</span>
@@ -251,9 +274,27 @@ const App: React.FC = () => {
                 Lower values show more possible matches, including uncertain ones. Higher values hide weaker guesses and keep only the most confident boxes.
               </p>
             </div>
+               <label htmlFor="threshold-slider" className="flex justify-between text-sm font-medium text-gray-300 mb-2">
+                 <span>Confidence Threshold</span>
+                 <span className="text-blue-400">{Math.round(confidenceThreshold * 100)}%</span>
+               </label>
+               <input
+                 id="threshold-slider"
+                 type="range"
+                 min="0.1"
+                 max="0.9"
+                 step="0.05"
+                 value={confidenceThreshold}
+                 onChange={handleThresholdChange}
+                  className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                />
+                <p className="mt-3 text-sm text-gray-300 leading-relaxed">
+                  Lower values show more possible matches, including uncertain ones. Higher values hide weaker guesses and keep only the most confident boxes.
+                </p>
+             </div>
 
-            <div className="w-full">
-              <label htmlFor="model-select" className="block text-sm font-medium text-gray-400 mb-2 text-center">
+             <div className="w-full">
+               <label htmlFor="model-select" className="block text-sm font-medium text-gray-400 mb-2 text-center">
                 Vision Model Architecture
               </label>
               <select
@@ -301,8 +342,56 @@ const App: React.FC = () => {
 
           <div className="w-full md:w-2/3">
             <DetectionInfo objects={displayedObjects} isActive={isShowingWebcam} mode={displayMode} />
+            {error && <p className="text-red-400 mt-2 text-center" role="alert">{error}</p>}
+               </select>
+             </div>
+             
+             {error && (
+               <div className="w-full rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-center" role="alert">
+                 <p className="text-red-300">{error}</p>
+                 <button
+                    onClick={switchToDemoMode}
+                    className="mt-3 inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                  >
+                    Use Classroom Demo Instead
+                  </button>
+               </div>
+             )}
+          </div>
+
+          <div className="w-full md:w-2/3">
+             <DetectionInfo objects={displayedObjects} isActive={isShowingWebcam} mode={displayMode} />
           </div>
         </div>
+
+        <section className="w-full max-w-4xl mt-6 grid gap-4 md:grid-cols-3">
+          <article className="rounded-lg border border-gray-700 bg-gray-800/80 p-4">
+            <h2 className="text-lg font-bold text-teal-300">Model choices in class</h2>
+            <ul className="mt-3 space-y-2 text-sm text-gray-300 leading-relaxed">
+              <li><strong>SSD MobileNet:</strong> easiest general-purpose choice for explaining speed versus accuracy.</li>
+              <li><strong>YOLOv8 Nano:</strong> often finds more objects, but its larger model can take longer to load.</li>
+              <li><strong>MoveNet / BlazeFace:</strong> specialized options when you want to focus on people or faces.</li>
+            </ul>
+          </article>
+          <article className="rounded-lg border border-gray-700 bg-gray-800/80 p-4">
+            <h2 className="text-lg font-bold text-blue-300">Threshold talking point</h2>
+            <p className="mt-3 text-sm text-gray-300 leading-relaxed">
+              The confidence threshold acts like a filter for uncertainty. At {Math.round(confidenceThreshold * 100)}%, the app only keeps predictions that clear that bar.
+            </p>
+            <p className="mt-2 text-sm text-gray-400 leading-relaxed">
+              Try lowering it to show more boxes, then raise it to discuss why some predictions disappear.
+            </p>
+          </article>
+          <article className="rounded-lg border border-gray-700 bg-gray-800/80 p-4">
+            <h2 className="text-lg font-bold text-amber-300">Fallback for live demos</h2>
+            <p className="mt-3 text-sm text-gray-300 leading-relaxed">
+              If the webcam is blocked or unavailable, switch to <strong>Classroom Demo</strong> to show a prepared scene with sample detections.
+            </p>
+            <p className="mt-2 text-sm text-gray-400 leading-relaxed">
+              The model selector and threshold slider still change the example so instructors can keep teaching without waiting on permissions.
+            </p>
+          </article>
+        </section>
       </main>
       <Footer />
     </div>

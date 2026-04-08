@@ -283,6 +283,10 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     if (modelName === 'yolov8n') {
       lastDetectionTimeRef.current = performance.now();
     }
+
+    if (modelName === 'yolov8n') {
+      lastDetectionTimeRef.current = performance.now();
+    }
     
     onDetections(predictions);
     drawPredictions(ctx, predictions);
@@ -362,6 +366,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
       }
     };
     
+    // Ensure TF is ready before loading
     if (typeof tf === 'undefined') {
       onModelLoad(false);
       onError('Vision libraries did not load. You can still use Classroom Demo mode for instruction.');
