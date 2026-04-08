@@ -34,6 +34,8 @@ interface WebcamViewProps {
   isActive: boolean;
   modelName: ModelName;
   confidenceThreshold: number;
+  mode: 'webcam' | 'demo';
+  demoObjects: DetectedObject[];
   onDetections: (objects: DetectedObject[]) => void;
   onModelLoad: (loaded: boolean) => void;
   onError: (message: string) => void;
@@ -196,12 +198,60 @@ const getWebcamSetupErrorMessage = (error?: unknown): string => {
   }
 
   return 'Could not access the webcam. Make sure the camera is connected, not already in use, and allowed in browser settings.';
+// Keep pose boxes stable by ignoring very low-confidence joints.
+const MOVENET_MIN_KEYPOINT_SCORE = 0.3;
+// Add a small margin so the box does not hug the outermost confident joints.
+const MOVENET_BOX_PADDING = 0.12;
+const MOVENET_MIN_PADDING_PX = 12;
+// Smaller YOLO input keeps the classroom demo responsive on lower-end laptops.
+const YOLO_INPUT_SIZE = 512;
+const YOLO_MAX_DETECTIONS = 20;
+const YOLO_MIN_FRAME_INTERVAL_MS = 120;
+
+const getMoveNetBoundingBox = (
+  pose: any,
+  videoWidth: number,
+  videoHeight: number,
+  confidenceThreshold: number
+): [number, number, number, number] | null => {
+  const validKeypoints = pose.keypoints.filter((keypoint: any) => (
+    Number.isFinite(keypoint.x) && Number.isFinite(keypoint.y)
+  ));
+  const confidentKeypoints = validKeypoints.filter((keypoint: any) => (
+    (keypoint.score ?? 0) >= Math.max(MOVENET_MIN_KEYPOINT_SCORE, confidenceThreshold * 0.5)
+  ));
+  const keypointsForBox = confidentKeypoints.length >= 4 ? confidentKeypoints : validKeypoints;
+
+  if (keypointsForBox.length < 2) {
+    return null;
+  }
+
+  const xs = keypointsForBox.map((keypoint: any) => keypoint.x);
+  const ys = keypointsForBox.map((keypoint: any) => keypoint.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const paddingX = Math.max((maxX - minX) * MOVENET_BOX_PADDING, MOVENET_MIN_PADDING_PX);
+  const paddingY = Math.max((maxY - minY) * MOVENET_BOX_PADDING, MOVENET_MIN_PADDING_PX);
+  const left = Math.max(0, minX - paddingX);
+  const top = Math.max(0, minY - paddingY);
+  const right = Math.min(videoWidth, maxX + paddingX);
+  const bottom = Math.min(videoHeight, maxY + paddingY);
+
+  if (right <= left || bottom <= top) {
+    return null;
+  }
+
+  return [left, top, right - left, bottom - top];
 };
 
 export const WebcamView: React.FC<WebcamViewProps> = ({ 
   isActive, 
   modelName, 
   confidenceThreshold, 
+  mode,
+  demoObjects,
   onDetections, 
   onModelLoad, 
   onError 
@@ -211,6 +261,36 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
   const modelRef = useRef<any>(null);
   const animationFrameId = useRef<number>();
   const streamRef = useRef<MediaStream | null>(null);
+  const lastDetectionTimeRef = useRef<number>(0);
+
+  const drawPredictions = useCallback((ctx: CanvasRenderingContext2D, predictions: DetectedObject[]) => {
+    const canvas = canvasRef.current;
+
+    if (!canvas) {
+      return;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    predictions.forEach(prediction => {
+      const [x, y, width, height] = prediction.bbox;
+      const color = BBOX_COLORS[prediction.class] || BBOX_COLORS.default;
+      
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x, y, width, height);
+
+      const text = `${prediction.class} - ${Math.round(prediction.score * 100)}%`;
+      ctx.fillStyle = color;
+      ctx.font = '16px sans-serif';
+      const textWidth = ctx.measureText(text).width;
+      const labelY = Math.max(0, Math.min(canvas.height - 25, y > 25 ? y - 5 : y + height - 25)); 
+      ctx.fillRect(x, labelY, textWidth + 10, 25);
+      
+      ctx.fillStyle = '#000000';
+      ctx.fillText(text, x + 5, labelY + 18);
+    });
+  }, []);
 
   const detectFrame = useCallback(async () => {
     if (!videoRef.current || videoRef.current.readyState < 4 || !modelRef.current || !canvasRef.current) {
@@ -233,6 +313,12 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     }
     
     let predictions: DetectedObject[] = [];
+    const now = performance.now();
+
+    if (modelName === 'yolov8n' && now - lastDetectionTimeRef.current < YOLO_MIN_FRAME_INTERVAL_MS) {
+      animationFrameId.current = requestAnimationFrame(detectFrame);
+      return;
+    }
     
     try {
         if (modelName === 'blazeface') {
@@ -254,26 +340,32 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
             predictions = poses
                 .filter((pose: any) => pose.score >= confidenceThreshold)
                 .map((pose: any) => {
-                    const xs = pose.keypoints.map((k: any) => k.x);
-                    const ys = pose.keypoints.map((k: any) => k.y);
-                    const minX = Math.min(...xs);
-                    const maxX = Math.max(...xs);
-                    const minY = Math.min(...ys);
-                    const maxY = Math.max(...ys);
+                    const bbox = getMoveNetBoundingBox(
+                      pose,
+                      video.videoWidth,
+                      video.videoHeight,
+                      confidenceThreshold
+                    );
+
+                    if (!bbox) {
+                      return null;
+                    }
+
                     return {
-                        bbox: [minX, minY, maxX - minX, maxY - minY],
+                        bbox,
                         class: 'person',
                         score: pose.score
                     };
-                });
+                })
+                .filter((prediction): prediction is DetectedObject => prediction !== null);
         } else if (modelName === 'yolov8n') {
             const { tf: runtimeTf } = getRuntimeLibraryReferences();
             if (!runtimeTf) {
                 throw new Error('TensorFlow runtime is unavailable.');
             }
             // YOLOv8 Detection Logic
-            const input = runtimeTf.tidy(() => {
-                return runtimeTf.image.resizeBilinear(runtimeTf.browser.fromPixels(video), [640, 640])
+            const input = tf.tidy(() => {
+                return tf.image.resizeBilinear(tf.browser.fromPixels(video), [YOLO_INPUT_SIZE, YOLO_INPUT_SIZE])
                     .div(255.0)
                     .expandDims(0);
             });
@@ -309,17 +401,22 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
             });
 
             // NMS
-            const nms = await runtimeTf.image.nonMaxSuppressionAsync(boxes, scores, 50, 0.45, confidenceThreshold);
-            const boxesData = boxes.gather(nms, 0).dataSync();
-            const scoresData = scores.gather(nms, 0).dataSync();
-            const classesData = classes.gather(nms, 0).dataSync();
+            const nms = await tf.image.nonMaxSuppressionAsync(boxes, scores, YOLO_MAX_DETECTIONS, 0.45, confidenceThreshold);
+            const selectedBoxes = boxes.gather(nms, 0);
+            const selectedScores = scores.gather(nms, 0);
+            const selectedClasses = classes.gather(nms, 0);
+            const boxesData = Array.from(selectedBoxes.dataSync());
+            const scoresData = Array.from(selectedScores.dataSync());
+            const classesData = Array.from(selectedClasses.dataSync());
+            const detectionCount = nms.size;
+            tf.dispose([selectedBoxes, selectedScores, selectedClasses, res, input, boxes, scores, classes, nms]);
             
             // Scale factors
-            const scaleX = video.videoWidth / 640;
-            const scaleY = video.videoHeight / 640;
+            const scaleX = video.videoWidth / YOLO_INPUT_SIZE;
+            const scaleY = video.videoHeight / YOLO_INPUT_SIZE;
 
             predictions = [];
-            for (let i = 0; i < nms.size; i++) {
+            for (let i = 0; i < detectionCount; i++) {
                 const y1 = boxesData[i * 4] * scaleY;
                 const x1 = boxesData[i * 4 + 1] * scaleX;
                 const y2 = boxesData[i * 4 + 2] * scaleY;
@@ -344,40 +441,57 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
     } catch (e) {
         console.warn("Detection error:", e);
     }
+
+    if (modelName === 'yolov8n') {
+      lastDetectionTimeRef.current = performance.now();
+    }
     
     onDetections(predictions);
-
-    // Drawing Logic
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    predictions.forEach(prediction => {
-      const [x, y, width, height] = prediction.bbox;
-      const color = BBOX_COLORS[prediction.class] || BBOX_COLORS.default;
-      
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      ctx.strokeRect(x, y, width, height);
-
-      const text = `${prediction.class} - ${Math.round(prediction.score * 100)}%`;
-      ctx.fillStyle = color;
-      const textWidth = ctx.measureText(text).width;
-      const labelY = y > 25 ? y - 5 : y + height - 25; 
-      ctx.fillRect(x, labelY, textWidth + 10, 25);
-      
-      ctx.fillStyle = '#000000';
-      ctx.font = '16px sans-serif';
-      ctx.fillText(text, x + 5, labelY + 18);
-    });
+    drawPredictions(ctx, predictions);
 
     animationFrameId.current = requestAnimationFrame(detectFrame);
-  }, [onDetections, modelName, confidenceThreshold]);
+  }, [onDetections, modelName, confidenceThreshold, drawPredictions]);
+
+  useEffect(() => {
+    if (!canvasRef.current) {
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      return;
+    }
+
+    if (mode === 'demo') {
+      canvas.width = 1280;
+      canvas.height = 720;
+      drawPredictions(ctx, demoObjects);
+      return;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }, [mode, demoObjects, drawPredictions]);
   
   // Load Model
   useEffect(() => {
     let isCancelled = false;
+    if (mode === 'demo') {
+      onModelLoad(false);
+      if (modelRef.current?.dispose) {
+        modelRef.current.dispose();
+      }
+      modelRef.current = null;
+      return;
+    }
 
     const loadModel = async () => {
       onModelLoad(false);
+      if (typeof tf === 'undefined') {
+        onError('Vision libraries did not load. You can still use Classroom Demo mode for instruction.');
+        return;
+      }
       if (modelRef.current?.dispose) {
         modelRef.current.dispose();
       }
@@ -449,6 +563,24 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
       isCancelled = true;
     };
   }, [modelName, onModelLoad, onError]);
+    
+    // Ensure TF is ready before loading
+    if (typeof tf === 'undefined') {
+      onModelLoad(false);
+      onError('Vision libraries did not load. You can still use Classroom Demo mode for instruction.');
+      return;
+    }
+
+    tf.ready()
+      .then(() => {
+        loadModel();
+      })
+      .catch(() => {
+        onModelLoad(false);
+        onError('Vision libraries did not finish loading. You can still use Classroom Demo mode for instruction.');
+      });
+    
+  }, [mode, modelName, onModelLoad, onError]);
 
   // Effect 1: Handle Webcam Stream
   useEffect(() => {
@@ -540,19 +672,49 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
 
   return (
     <div className="relative aspect-video bg-black rounded-lg">
-      <video
-        ref={videoRef}
-        playsInline
-        muted
-        className="w-full h-full object-contain rounded-lg"
-        aria-label="Webcam feed"
-      />
+      {mode === 'demo' ? (
+        <>
+          <svg
+            viewBox="0 0 1280 720"
+            className="w-full h-full rounded-lg"
+            role="img"
+            aria-label="Prepared classroom demo scene"
+          >
+            <rect width="1280" height="720" fill="#111827" />
+            <rect x="0" y="470" width="1280" height="250" fill="#1f2937" />
+            <rect x="660" y="355" width="350" height="25" rx="8" fill="#374151" />
+            <rect x="700" y="380" width="260" height="120" rx="18" fill="#4b5563" />
+            <rect x="990" y="330" width="85" height="135" rx="18" fill="#9ca3af" />
+            <rect x="960" y="455" width="140" height="18" rx="9" fill="#6b7280" />
+            <circle cx="305" cy="150" r="72" fill="#f59e0b" />
+            <rect x="240" y="220" width="140" height="200" rx="64" fill="#14b8a6" />
+            <rect x="215" y="300" width="55" height="210" rx="20" fill="#14b8a6" />
+            <rect x="350" y="300" width="55" height="210" rx="20" fill="#14b8a6" />
+            <rect x="245" y="420" width="50" height="200" rx="20" fill="#0f766e" />
+            <rect x="325" y="420" width="50" height="200" rx="20" fill="#0f766e" />
+            <rect x="455" y="295" width="65" height="118" rx="20" fill="#60a5fa" />
+            <rect x="120" y="70" width="245" height="50" rx="12" fill="#0f172a" opacity="0.72" />
+            <text x="150" y="103" fill="#e5e7eb" fontSize="28" fontFamily="sans-serif">Teacher + desk scene</text>
+          </svg>
+          <div className="absolute left-4 top-4 rounded-full bg-blue-600/90 px-4 py-2 text-sm font-semibold text-white shadow-lg">
+            Classroom Demo Mode
+          </div>
+        </>
+      ) : (
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          className="w-full h-full object-contain rounded-lg"
+          aria-label="Webcam feed"
+        />
+      )}
       <canvas
         ref={canvasRef}
         className="absolute top-0 left-0 w-full h-full"
         aria-hidden="true"
       />
-      {!isActive && (
+      {!isActive && mode !== 'demo' && (
          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
            <div className="text-center p-4">
               <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
