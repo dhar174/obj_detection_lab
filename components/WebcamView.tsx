@@ -332,6 +332,7 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
   useEffect(() => {
     const loadId = ++activeModelLoadId.current;
     let isStale = false;
+
     if (mode === 'demo') {
       onModelLoad(false);
       if (modelRef.current?.dispose) {
@@ -399,31 +400,32 @@ export const WebcamView: React.FC<WebcamViewProps> = ({
         onError(errorMsg);
       }
     };
-     
-    // Ensure TF is ready before loading
-    tf.ready().then(() => {
-        void loadModel();
-    });
 
-    return () => {
-      isStale = true;
-    };
-  }, [modelName, onModelLoad, onError]);
+    // Ensure TF is ready before loading
     if (typeof tf === 'undefined') {
       onModelLoad(false);
       onError('Vision libraries did not load. You can still use Classroom Demo mode for instruction.');
-      return;
+      return () => {
+        isStale = true;
+      };
     }
 
     tf.ready()
       .then(() => {
-        loadModel();
+        void loadModel();
       })
       .catch(() => {
+        if (isStale || loadId !== activeModelLoadId.current) {
+          return;
+        }
+
         onModelLoad(false);
         onError('Vision libraries did not finish loading. You can still use Classroom Demo mode for instruction.');
       });
-    
+
+    return () => {
+      isStale = true;
+    };
   }, [mode, modelName, onModelLoad, onError]);
 
   // Effect 1: Handle Webcam Stream
